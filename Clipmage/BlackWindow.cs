@@ -4,18 +4,15 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Web;
-using System.Windows.Forms;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
-
-//snipping tool connection
-using System.IO;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
 using Windows.System;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 
 namespace Clipmage
 {
@@ -44,6 +41,7 @@ namespace Clipmage
         private Button _editButton;
 
         private System.Windows.Forms.Timer _lifeTimer;
+        private System.Windows.Forms.Timer _fadeTimer; // Timer for the fade-out effect
 
         // --- Physics / Dragging Variables ---
         private bool _isDragging = false;
@@ -57,12 +55,23 @@ namespace Clipmage
         private PointF _anchorRatio;      // Where we grabbed the window (0.0-1.0)
         private System.Windows.Forms.Timer _animationTimer;
         private const float DRAG_SCALE_FACTOR = 0.2f;
+        private const float FILE_DRAG_OFFSET = 18;
+
+        // --- File Drag Logic Variables ---
+        private DateTime _lastMouseMoveTime;       // Tracks when we last moved the mouse
+        private Point _dragWaitStartPos;           // Where the mouse was when the wait started
+        private Point _lastTickMousePos;           // Tracks mouse pos between animation ticks
+        private Point _fileDragStartPos;           // Where the active file drag started
+        private bool _isFileDragActive = false;    // Are we currently in a DoDragDrop loop?
+        private bool _wasFileDragCancelledByMovement = false; // Flag to handle resume logic
+        private const int DRAG_WAIT_MS = 100;      // How long to hold still before file drag starts
+        private const int DRAG_CANCEL_DISTANCE = 50; // Pixels to move to cancel the wait
 
         // Physics Constants 
-        private const float FRICTION = 0.86f;
+        private const float FRICTION = 0.87f;
         private const float MIN_VELOCITY = 0.85f;
         private const int WINDOW_REFRESH_INTERVAL = 8;
-        
+
         private const float BOUNCE_FACTOR = 0.85f;
         private const int SMOOTHING_RANGE_MS = 14;
 
@@ -75,6 +84,16 @@ namespace Clipmage
 
         [DllImport("dwmapi.dll")]
         private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+
+        // --- Window Styles Imports (For Click-Through) ---
+        [DllImport("user32.dll")]
+        private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll")]
+        private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+        private const int GWL_EXSTYLE = -20;
+        private const int WS_EX_TRANSPARENT = 0x20; // Makes window transparent to mouse clicks
 
         [StructLayout(LayoutKind.Sequential)]
         private struct MARGINS
@@ -136,6 +155,7 @@ namespace Clipmage
             this.MouseDown += OnMouseDown;
             this.MouseMove += OnMouseMove;
             this.MouseUp += OnMouseUp;
+            this.GiveFeedback += OnGiveFeedback; // Hook up feedback for custom drag cursor
         }
 
         // --- DWM Logic for Beautiful Shadows ---
@@ -146,6 +166,21 @@ namespace Clipmage
 
             int preference = DWMWCP_ROUND;
             DwmSetWindowAttribute(this.Handle, DWMWA_WINDOW_CORNER_PREFERENCE, ref preference, sizeof(int));
+        }
+
+        // --- Hit Test Logic for Drag Transparency ---
+        protected override void WndProc(ref Message m)
+        {
+            const int WM_NCHITTEST = 0x0084;
+            const int HTTRANSPARENT = -1;
+
+            if (m.Msg == WM_NCHITTEST && _isFileDragActive)
+            {
+                m.Result = (IntPtr)HTTRANSPARENT;
+                return;
+            }
+
+            base.WndProc(ref m);
         }
 
         // --- Physics / Dragging / Animation Logic ---
@@ -160,7 +195,7 @@ namespace Clipmage
         private void SetupAnimationTimer()
         {
             _animationTimer = new System.Windows.Forms.Timer();
-            _animationTimer.Interval = WINDOW_REFRESH_INTERVAL; // ~60 FPS
+            _animationTimer.Interval = WINDOW_REFRESH_INTERVAL;
             _animationTimer.Tick += OnAnimationTick;
         }
 
@@ -170,15 +205,22 @@ namespace Clipmage
             {
                 _isDragging = true;
                 _physicsTimer.Stop();
+
+                // Stop timer to prevent auto-close while holding
+                _lifeTimer.Stop();
+
                 _velocity = PointF.Empty;
+
+                // Track time for "Hold to Drag" logic
+                _lastMouseMoveTime = DateTime.Now;
+                _dragWaitStartPos = Cursor.Position;
+                _lastTickMousePos = Cursor.Position;
 
                 // Clear physics history
                 _dragHistory.Clear();
                 _dragHistory.Enqueue((DateTime.Now, Cursor.Position));
 
                 // 1. Calculate Anchor Ratio (0.0 to 1.0)
-                // This tells us where we grabbed the window relative to its size.
-                // We use this to keep the window "glued" to the mouse while scaling.
                 Point mousePos = Cursor.Position;
                 float relX = (float)(mousePos.X - this.Left) / this.Width;
                 float relY = (float)(mousePos.Y - this.Top) / this.Height;
@@ -187,7 +229,7 @@ namespace Clipmage
                 // 2. Set Target Scale (Shrink)
                 _targetScale = DRAG_SCALE_FACTOR;
 
-                // 3. Hide Pin Button and Edit Button
+                // 3. Hide Buttons
                 if (_pinButton != null) _pinButton.Visible = false;
                 if (_editButton != null) _editButton.Visible = false;
 
@@ -200,10 +242,9 @@ namespace Clipmage
         {
             if (_isDragging)
             {
-                // NOTE: We do NOT update this.Location here anymore.
-                // The position update is handled in OnAnimationTick to sync with resizing.
+                // We only log history for the "Throw" physics here.
+                // NOTE: The "Hold to Drag" cancellation logic has been moved to OnAnimationTick.
 
-                // We only log history for the "Throw" physics
                 DateTime now = DateTime.Now;
                 Point currentPos = Cursor.Position;
                 _dragHistory.Enqueue((now, currentPos));
@@ -219,44 +260,183 @@ namespace Clipmage
         {
             if (e.Button == MouseButtons.Left && _isDragging)
             {
-                _isDragging = false;
+                HandleMouseRelease();
+            }
+        }
 
-                // 1. Set Target Scale (Restore)
-                _targetScale = 1.0f;
+        // New method to initiate the File Drag operation
+        private void StartFileDrag()
+        {
+            _isFileDragActive = true;
+            _wasFileDragCancelledByMovement = false;
 
-                // 2. Restore Pin Button
-                //if (_pinButton != null) _pinButton.Visible = true;
-                //It should come back after the animation exits
+            // Record where the FILE drag actually started so we can measure delta inside the loop
+            _fileDragStartPos = Cursor.Position;
 
-                // 3. Calculate Physics Throw Velocity
-                if (_dragHistory.Count >= 2)
+            string tempPath = Path.Combine(Path.GetTempPath(), $"Clipmage_{DateTime.Now.Ticks}.png");
+
+            // CRITICAL FIX: Temporarily make the window transparent to input (click-through)
+            int initialStyle = GetWindowLong(this.Handle, GWL_EXSTYLE);
+
+            try
+            {
+                // Apply WS_EX_TRANSPARENT
+                SetWindowLong(this.Handle, GWL_EXSTYLE, initialStyle | WS_EX_TRANSPARENT);
+
+                _img.Save(tempPath, ImageFormat.Png);
+
+                var dataObject = new DataObject();
+                dataObject.SetData(DataFormats.FileDrop, new string[] { tempPath });
+                dataObject.SetData(DataFormats.Bitmap, _img);
+
+                // Listen for drag updates to cancel if moved too far
+                this.QueryContinueDrag += OnQueryContinueDrag;
+
+                // This call BLOCKS execution until the drop is finished or cancelled
+                this.DoDragDrop(dataObject, DragDropEffects.Copy | DragDropEffects.Move);
+            }
+            catch { }
+            finally
+            {
+                this.QueryContinueDrag -= OnQueryContinueDrag;
+
+                // Always restore the window to be interactive again
+                SetWindowLong(this.Handle, GWL_EXSTYLE, initialStyle);
+                _isFileDragActive = false;
+
+                if (_wasFileDragCancelledByMovement)
                 {
-                    var newest = _dragHistory.Last();
-                    var oldest = _dragHistory.First();
+                    // If cancelled by movement, we RESUME normal window dragging.
+                    // We do NOT call HandleMouseRelease.
+                    // We reset the hold timer so it doesn't just trigger again instantly.
+                    _lastMouseMoveTime = DateTime.Now;
+                    _dragWaitStartPos = Cursor.Position;
 
-                    double totalMs = (newest.Time - oldest.Time).TotalMilliseconds;
-                    if (totalMs > 0)
-                    {
-                        float dx = newest.Position.X - oldest.Position.X;
-                        float dy = newest.Position.Y - oldest.Position.Y;
-                        float pxPerMsX = dx / (float)totalMs;
-                        float pxPerMsY = dy / (float)totalMs;
-                        _velocity = new PointF(pxPerMsX * WINDOW_REFRESH_INTERVAL, pxPerMsY * WINDOW_REFRESH_INTERVAL);
-                    }
+                    // We remain in _isDragging = true state, so window follows mouse in OnAnimationTick
                 }
-
-                double speed = Math.Sqrt(_velocity.X * _velocity.X + _velocity.Y * _velocity.Y);
-                if (speed > 1.0)
+                else
                 {
-                    _physicsTimer.Start();
+                    // Normal drop or user pressed Escape -> Release window
+                    HandleMouseRelease();
                 }
+            }
+        }
 
-                // Keep _animationTimer running until we finish expanding back to 1.0
+        private void OnQueryContinueDrag(object sender, QueryContinueDragEventArgs e)
+        {
+            // This fires continuously while dragging.
+            // Check if cursor has moved far enough to cancel "File Drag Mode" and return to "Window Drag Mode"
+            Point currentPos = Cursor.Position;
+            double dist = Math.Sqrt(Math.Pow(currentPos.X - _fileDragStartPos.X, 2) + Math.Pow(currentPos.Y - _fileDragStartPos.Y, 2));
+
+            if (dist > DRAG_CANCEL_DISTANCE)
+            {
+                // Cancel the DoDragDrop loop
+                e.Action = DragAction.Cancel;
+                _wasFileDragCancelledByMovement = true;
+            }
+        }
+
+        private void OnGiveFeedback(object sender, GiveFeedbackEventArgs e)
+        {
+            if (_isFileDragActive)
+            {
+                e.UseDefaultCursors = false;
+                Cursor.Current = Cursors.Default;
+
+                int newW = (int)(_baseSize.Width * _currentScale);
+                int newH = (int)(_baseSize.Height * _currentScale);
+                int newX = Cursor.Position.X - (int)(newW * _anchorRatio.X);
+                int newY = Cursor.Position.Y - (int)(newH * _anchorRatio.Y);
+
+                float t = (1.0f - _currentScale) / (1.0f - DRAG_SCALE_FACTOR);
+                newY -= (int)(FILE_DRAG_OFFSET * Math.Min(1.0f, Math.Max(0.0f, t)));
+
+                this.Location = new Point(newX, newY);
+
+                DateTime now = DateTime.Now;
+                Point currentPos = Cursor.Position;
+                _dragHistory.Enqueue((now, currentPos));
+                while (_dragHistory.Count > 0 && (now - _dragHistory.Peek().Time).TotalMilliseconds > SMOOTHING_RANGE_MS)
+                {
+                    _dragHistory.Dequeue();
+                }
+            }
+        }
+
+        // Shared logic for finishing a drag (either from MouseUp or End of FileDrag)
+        private void HandleMouseRelease()
+        {
+            _isDragging = false;
+            _targetScale = 1.0f;
+
+            if (!_isPinned)
+            {
+                _lifeTimer.Start();
+            }
+
+            if (_dragHistory.Count >= 2)
+            {
+                var newest = _dragHistory.Last();
+                var oldest = _dragHistory.First();
+
+                double totalMs = (newest.Time - oldest.Time).TotalMilliseconds;
+                if (totalMs > 0)
+                {
+                    float dx = newest.Position.X - oldest.Position.X;
+                    float dy = newest.Position.Y - oldest.Position.Y;
+                    float pxPerMsX = dx / (float)totalMs;
+                    float pxPerMsY = dy / (float)totalMs;
+                    _velocity = new PointF(pxPerMsX * WINDOW_REFRESH_INTERVAL, pxPerMsY * WINDOW_REFRESH_INTERVAL);
+                }
+            }
+
+            double speed = Math.Sqrt(_velocity.X * _velocity.X + _velocity.Y * _velocity.Y);
+            if (speed > 1.0)
+            {
+                _physicsTimer.Start();
             }
         }
 
         private void OnAnimationTick(object sender, EventArgs e)
         {
+            // Guard against running logic if DoDragDrop has hijacked the thread
+            if (_isFileDragActive) return;
+
+            // --- Check for Hold-to-Drag Trigger ---
+            if (_isDragging)
+            {
+                // Ensure we detect mouse up even if event was lost
+                if ((Control.MouseButtons & MouseButtons.Left) == 0)
+                {
+                    HandleMouseRelease();
+                    return;
+                }
+
+                // Check physical mouse movement regardless of window position updates
+                Point currentPos = Cursor.Position;
+                if (currentPos != _lastTickMousePos)
+                {
+                    // Mouse moved -> Reset hold timer
+                    _lastMouseMoveTime = DateTime.Now;
+                    _lastTickMousePos = currentPos;
+
+                    // If moved too far from initial wait spot, reset the anchor
+                    double moveDist = Math.Sqrt(Math.Pow(currentPos.X - _dragWaitStartPos.X, 2) + Math.Pow(currentPos.Y - _dragWaitStartPos.Y, 2));
+                    if (moveDist > DRAG_CANCEL_DISTANCE)
+                    {
+                        _dragWaitStartPos = currentPos;
+                    }
+                }
+
+                // If holding still for > 200ms, start file drag
+                if ((DateTime.Now - _lastMouseMoveTime).TotalMilliseconds > DRAG_WAIT_MS)
+                {
+                    StartFileDrag();
+                    return; // StartFileDrag blocks; return to ensure clean state on resume
+                }
+            }
+
             // 1. Lerp the Scale
             float lerpSpeed = 0.25f; // Adjust for snap vs smooth
             _currentScale += (_targetScale - _currentScale) * lerpSpeed;
@@ -281,14 +461,17 @@ namespace Clipmage
             if (_isDragging)
             {
                 // If dragging, position relative to the mouse anchor
-                // This keeps the specific pixel you grabbed under the cursor
                 newX = Cursor.Position.X - (int)(newW * _anchorRatio.X);
                 newY = Cursor.Position.Y - (int)(newH * _anchorRatio.Y);
+
+                // Apply interpolated offset based on scale to expose cursor
+                // This makes the window "slide up" 16px as it shrinks
+                float t = (1.0f - _currentScale) / (1.0f - DRAG_SCALE_FACTOR);
+                newY -= (int)(FILE_DRAG_OFFSET * Math.Min(1.0f, Math.Max(0.0f, t)));
             }
             else
             {
                 // If restoring (mouse up), expand from the CENTER of the current window
-                // This prevents the window from jumping; it just grows in place
                 Point currentCenter = new Point(this.Left + this.Width / 2, this.Top + this.Height / 2);
                 newX = currentCenter.X - newW / 2;
                 newY = currentCenter.Y - newH / 2;
@@ -430,26 +613,16 @@ namespace Clipmage
             this.Controls.Add(_editButton);
         }
 
-        private async void SwitchToEdit() 
+        private async void SwitchToEdit()
         {
-
-            // 1. Save the Image to a temp file in a location UWP can access
             string tempFileName = $"snip_{Guid.NewGuid()}.png";
             string tempFilePath = Path.Combine(Path.GetTempPath(), tempFileName);
             _img.Save(tempFilePath, ImageFormat.Png);
 
-            // 2. Convert to a Windows StorageFile object
             StorageFile file = await StorageFile.GetFileFromPathAsync(tempFilePath);
-
-            // 3. Generate the sharedAccessToken
-            // This adds the file to a "safe list" so the Snipping Tool can read it
             string token = SharedStorageAccessManager.AddFile(file);
-
-            // 4. Build the URI using the token you just created
-            // We use isTemporary=true so Windows cleans up the token/access later
             string uriString = $"ms-screensketch:edit?source=MyApp&isTemporary=true&sharedAccessToken={token}";
 
-            // 5. Launch
             await Launcher.LaunchUriAsync(new Uri(uriString));
         }
 
@@ -534,13 +707,40 @@ namespace Clipmage
             _lifeTimer.Start();
         }
 
+        // --- Fade Out Logic ---
         private void OnTimerTick(object sender, EventArgs e)
         {
-            _animationTimer.Stop(); // Ensure animation stops
+            // Instead of closing immediately, start the fade out.
+            _animationTimer.Stop();
             _physicsTimer.Stop();
             _lifeTimer.Stop();
-            _lifeTimer.Dispose();
-            this.Close();
+
+            StartFadeOut();
+        }
+
+        private void StartFadeOut()
+        {
+            _fadeTimer = new System.Windows.Forms.Timer();
+            _fadeTimer.Interval = WINDOW_REFRESH_INTERVAL; // ~120 FPS
+            _fadeTimer.Tick += OnFadeTick;
+            _fadeTimer.Start();
+        }
+
+        private void OnFadeTick(object sender, EventArgs e)
+        {
+            // Reduce opacity by 2.5% per tick
+            if (this.Opacity > 0)
+            {
+                this.Opacity -= 0.025;
+            }
+            else
+            {
+                // When fully invisible, clean up and close
+                _fadeTimer.Stop();
+                _fadeTimer.Dispose();
+                _lifeTimer.Dispose();
+                this.Close();
+            }
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)
@@ -554,6 +754,11 @@ namespace Clipmage
             {
                 _animationTimer.Stop();
                 _animationTimer.Dispose();
+            }
+            if (_fadeTimer != null)
+            {
+                _fadeTimer.Stop();
+                _fadeTimer.Dispose();
             }
             base.OnFormClosed(e);
         }
