@@ -55,7 +55,7 @@ namespace Clipmage
         private PointF _anchorRatio;      // Where we grabbed the window (0.0-1.0)
         private System.Windows.Forms.Timer _animationTimer;
         private const float DRAG_SCALE_FACTOR = 0.2f;
-        private const float FILE_DRAG_OFFSET = 18;
+        private const float FILE_DRAG_OFFSET = 8;
 
         // --- File Drag Logic Variables ---
         private DateTime _lastMouseMoveTime;       // Tracks when we last moved the mouse
@@ -64,8 +64,8 @@ namespace Clipmage
         private Point _fileDragStartPos;           // Where the active file drag started
         private bool _isFileDragActive = false;    // Are we currently in a DoDragDrop loop?
         private bool _wasFileDragCancelledByMovement = false; // Flag to handle resume logic
-        private const int DRAG_WAIT_MS = 100;      // How long to hold still before file drag starts
-        private const int DRAG_CANCEL_DISTANCE = 50; // Pixels to move to cancel the wait
+        private const int DRAG_WAIT_MS = 200;      // How long to hold still before file drag starts
+        private const int DRAG_CANCEL_DISTANCE = 100; // Pixels to move to cancel the wait
 
         // Physics Constants 
         private const float FRICTION = 0.87f;
@@ -224,8 +224,8 @@ namespace Clipmage
                 Point mousePos = Cursor.Position;
                 float relX = (float)(mousePos.X - this.Left) / this.Width;
                 float relY = (float)(mousePos.Y - this.Top) / this.Height;
-                _anchorRatio = new PointF(relX, relY);
 
+                _anchorRatio = new PointF(relX, relY);
                 // 2. Set Target Scale (Shrink)
                 _targetScale = DRAG_SCALE_FACTOR;
 
@@ -350,7 +350,7 @@ namespace Clipmage
                 int newY = Cursor.Position.Y - (int)(newH * _anchorRatio.Y);
 
                 float t = (1.0f - _currentScale) / (1.0f - DRAG_SCALE_FACTOR);
-                newY -= (int)(FILE_DRAG_OFFSET * Math.Min(1.0f, Math.Max(0.0f, t)));
+                newY -= (int)(((_baseSize.Height * (1-_anchorRatio.Y) * DRAG_SCALE_FACTOR) + FILE_DRAG_OFFSET) * Math.Min(1.0f, Math.Max(0.0f, t)));
 
                 this.Location = new Point(newX, newY);
 
@@ -467,7 +467,7 @@ namespace Clipmage
                 // Apply interpolated offset based on scale to expose cursor
                 // This makes the window "slide up" 16px as it shrinks
                 float t = (1.0f - _currentScale) / (1.0f - DRAG_SCALE_FACTOR);
-                newY -= (int)(FILE_DRAG_OFFSET * Math.Min(1.0f, Math.Max(0.0f, t)));
+                newY -= (int)(((_baseSize.Height * (1 - _anchorRatio.Y) * DRAG_SCALE_FACTOR) + FILE_DRAG_OFFSET) * Math.Min(1.0f, Math.Max(0.0f, t)));
             }
             else
             {
