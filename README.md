@@ -3,6 +3,8 @@
 
 Clipmage is a Windows application that lets you manage the screenshots you take, easier than ever.
 
+https://github.com/user-attachments/assets/f3b36917-02c6-4512-8898-ef516378c1b7
+
 
 ## Installation
 
