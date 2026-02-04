@@ -7,6 +7,57 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <ApplicationIcon>Clipmage.ico</ApplicationIcon>
+    <SignAssembly>True</SignAssembly>
+    <AssemblyOriginatorKeyFile>C:\Users\hello\source\repos\clipmageKey.snk</AssemblyOriginatorKeyFile>
+    <Title>Clipmage</Title>
+    <Authors>Can Berk Çakır</Authors>
+    <Description>Clipmage is a Windows application that lets you manage the screenshots you take, easier than ever. Say goodbye to the snipping tool notifications and welcome the Clipmage...</Description>
+    <PackageProjectUrl>https://github.com/xanndevs/clipmage</PackageProjectUrl>
+    <PackageIcon>Clipmage.png</PackageIcon>
+    <RepositoryUrl>https://github.com/xanndevs/clipmage.git</RepositoryUrl>
+    <PackageTags>windows;screenshot;screenshots;snippin-tool;snippingtool;extension;addon;add-on;tool;accessability</PackageTags>
+    <PackageReleaseNotes>Clipmage is a Windows application that lets you manage the screenshots you take, easier than ever. Say goodbye to the snipping tool notifications and welcome the Clipmage...</PackageReleaseNotes>
+    <Company>xanndevs</Company>
+    <ProduceReferenceAssembly>True</ProduceReferenceAssembly>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Clipmage.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\..\..\Documents\Clipmage.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Properties\Resources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Update="Properties\Settings.Designer.cs">
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+  </ItemGroup>
 
 </Project>
