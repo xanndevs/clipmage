@@ -14,18 +14,11 @@ using Windows.Storage;
 using Windows.System;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 
+using static Clipmage.WindowHelpers;
+
 namespace Clipmage
 {
-    [Flags]
-    public enum RoundedCorners
-    {
-        None = 0x00,
-        TopLeft = 0x02,
-        TopRight = 0x04,
-        BottomLeft = 0x08,
-        BottomRight = 0x10,
-        All = 0x1F
-    }
+
 
     public class BlackWindow : Form
     {
@@ -35,7 +28,7 @@ namespace Clipmage
         private Image _img;
 
         private int _durationSeconds;
-        private int _cornerRadius = 3;
+        private int _cornerRadius = 4;
         private bool _isPinned = false;
         private Button _pinButton;
         private Button _editButton;
@@ -108,13 +101,17 @@ namespace Clipmage
         private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
         private const int DWMWCP_ROUND = 2; // Force round corners (Win11)
 
+        public readonly Guid id;
+
         public BlackWindow(Image screenshotToDisplay, int durationSeconds)
         {
+            id = Guid.NewGuid();
             _durationSeconds = durationSeconds;
             _img = screenshotToDisplay;
             InitializeComponent(screenshotToDisplay);
             SetupPinButton();
             SetupEditButton();
+            SetupContextMenu(); // Added Context Menu
 
             SetupLifeTimer(_durationSeconds);
             SetupPhysicsTimer();
@@ -285,15 +282,27 @@ namespace Clipmage
 
                 _img.Save(tempPath, ImageFormat.Png);
 
+                //Normal Drag And Drop
                 var dataObject = new DataObject();
                 dataObject.SetData(DataFormats.FileDrop, new string[] { tempPath });
                 dataObject.SetData(DataFormats.Bitmap, _img);
 
+                //Clipmage Exception - passing the ID
+                dataObject.SetData("ClipmageID", this.id);
+
+
                 // Listen for drag updates to cancel if moved too far
                 this.QueryContinueDrag += OnQueryContinueDrag;
 
-                // This call BLOCKS execution until the drop is finished or cancelled
-                this.DoDragDrop(dataObject, DragDropEffects.Copy | DragDropEffects.Move);
+                // Stores the result of the drag operation for post-drag logic
+                DragDropEffects result = this.DoDragDrop(dataObject, DragDropEffects.Copy | DragDropEffects.Move);
+
+                // Check if shelf consumed it
+                if (!_wasFileDragCancelledByMovement && result == DragDropEffects.Move)
+                {
+                    this.Hide();
+                    return;
+                }
             }
             catch { }
             finally
@@ -542,10 +551,11 @@ namespace Clipmage
             _pinButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
 
             _pinButton.FlatStyle = FlatStyle.Flat;
-            _pinButton.ForeColor = Color.LightGray;
             _pinButton.BackColor = Color.FromArgb(255, 39, 41, 42);
             _pinButton.FlatAppearance.BorderSize = 0;
             _pinButton.FlatAppearance.BorderColor = Color.DimGray;
+            _pinButton.ForeColor = Color.LightGray;
+
             _pinButton.FlatStyle = FlatStyle.Flat;
             _pinButton.UseVisualStyleBackColor = true;
 
@@ -555,7 +565,7 @@ namespace Clipmage
             _pinButton.Click += (s, e) => TogglePin();
 
             // We still use manual region rounding for the BUTTON itself
-            ApplyRoundedRegion(_pinButton, _cornerRadius);
+            ApplyRoundedRegion(_pinButton, _cornerRadius, 1, Color.Empty);
 
             this.Controls.Add(_pinButton);
         }
@@ -568,16 +578,17 @@ namespace Clipmage
             {
                 _lifeTimer.Stop();
                 _pinButton.Text = "\uE77a";
-                _pinButton.ForeColor = Color.LightGray;
-                _pinButton.BackColor = Color.FromArgb(255, 76, 162, 230);
+                //_pinButton.BackColor = Color.FromArgb(255, 76, 162, 230);
                 _pinButton.FlatAppearance.BorderColor = Color.FromArgb(255, 48, 117, 171);
+                _pinButton.ForeColor= Color.FromArgb(255, 48, 117, 171);
             }
             else
             {
                 _pinButton.Text = "\ue718";
-                _pinButton.ForeColor = Color.LightGray;
-                _pinButton.BackColor = Color.FromArgb(255, 39, 41, 42);
+                //_pinButton.BackColor = Color.FromArgb(255, 39, 41, 42);
                 _pinButton.FlatAppearance.BorderColor = Color.DimGray;
+                _pinButton.ForeColor= Color.LightGray;
+
 
                 _lifeTimer.Stop();
                 SetupLifeTimer(2);
@@ -608,7 +619,7 @@ namespace Clipmage
             _editButton.Click += (s, e) => SwitchToEdit();
 
             // We still use manual region rounding for the BUTTON itself
-            ApplyRoundedRegion(_editButton, _cornerRadius);
+            ApplyRoundedRegion(_editButton, _cornerRadius, 1, Color.Empty);
 
             this.Controls.Add(_editButton);
         }
@@ -626,72 +637,21 @@ namespace Clipmage
             await Launcher.LaunchUriAsync(new Uri(uriString));
         }
 
-        private void ApplyRoundedRegion(Control control, int radius)
+        private void SetupContextMenu()
         {
-            if (control == null || control.Width <= 0 || control.Height <= 0) return;
+            ContextMenuStrip menu = new ContextMenuStrip();
+            ToolStripMenuItem itemShelf = new ToolStripMenuItem("Open Shelf");
+            itemShelf.Click += (s, e) => WindowController.ToggleShelf();
+            menu.Items.Add(itemShelf);
 
-            using (Bitmap mask = new Bitmap(control.Width, control.Height))
-            {
-                using (Graphics g = Graphics.FromImage(mask))
-                {
-                    g.Clear(Color.Transparent);
-                    using (Brush b = new SolidBrush(Color.Black))
-                    {
-                        DrawRoundedShape(g, b, new Rectangle(0, 0, control.Width, control.Height), radius, RoundedCorners.All);
-                    }
-                }
-                control.Region = BitmapToRegion(mask);
-            }
+            ToolStripMenuItem itemClose = new ToolStripMenuItem("Close");
+            itemClose.Click += (s, e) => this.Close();
+            menu.Items.Add(itemClose);
+
+            this.ContextMenuStrip = menu;
         }
 
-        private void DrawRoundedShape(Graphics g, Brush brush, Rectangle rec, int radius, RoundedCorners corners)
-        {
-            int x = rec.X;
-            int y = rec.Y;
-            int diameter = radius * 2;
 
-            var horiz = new Rectangle(x, y + radius, rec.Width, rec.Height - diameter);
-            var vert = new Rectangle(x + radius, y, rec.Width - diameter, rec.Height);
-
-            g.FillRectangle(brush, horiz);
-            g.FillRectangle(brush, vert);
-
-            if ((corners & RoundedCorners.TopLeft) == RoundedCorners.TopLeft)
-                g.FillEllipse(brush, x, y, diameter, diameter);
-            else
-                g.FillRectangle(brush, x, y, diameter, diameter);
-
-            if ((corners & RoundedCorners.TopRight) == RoundedCorners.TopRight)
-                g.FillEllipse(brush, x + rec.Width - (diameter + 1), y, diameter, diameter);
-            else
-                g.FillRectangle(brush, x + rec.Width - (diameter + 1), y, diameter, diameter);
-
-            if ((corners & RoundedCorners.BottomLeft) == RoundedCorners.BottomLeft)
-                g.FillEllipse(brush, x, y + rec.Height - (diameter + 1), diameter, diameter);
-            else
-                g.FillRectangle(brush, x, y + rec.Height - (diameter + 1), diameter, diameter);
-
-            if ((corners & RoundedCorners.BottomRight) == RoundedCorners.BottomRight)
-                g.FillEllipse(brush, x + rec.Width - (diameter + 1), y + rec.Height - (diameter + 1), diameter, diameter);
-            else
-                g.FillRectangle(brush, x + rec.Width - (diameter + 1), y + rec.Height - (diameter + 1), diameter, diameter);
-        }
-
-        private Region BitmapToRegion(Bitmap bitmap)
-        {
-            GraphicsPath path = new GraphicsPath();
-            for (int y = 0; y < bitmap.Height; y++)
-            {
-                for (int x = 0; x < bitmap.Width; x++)
-                {
-                    if (bitmap.GetPixel(x, y).A > 0)
-                    {
-                        path.AddRectangle(new Rectangle(x, y, 1, 1));
-                    }
-                }
-            }
-            return new Region(path);
-        }
 
         protected override void OnPaint(PaintEventArgs e)
         {
