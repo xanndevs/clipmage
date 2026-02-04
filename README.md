@@ -1,5 +1,7 @@
-﻿
-# Clipmage
+<p align=center>
+<img height="125" alt="LogoWideLight" src="https://github.com/user-attachments/assets/d89987a1-8460-4805-86f3-8dc6b4f1bb74" />
+</p>
+
 
 Clipmage is a Windows application that lets you manage the screenshots you take, easier than ever.
 
