@@ -12,6 +12,8 @@ namespace Clipmage
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            WindowController.ToggleShelf();
+            WindowController.Shelf.Hide();
 
             // Create the invisible listener
             using (ClipboardWatcher watcher = new ClipboardWatcher())
@@ -30,5 +32,6 @@ namespace Clipmage
                 Application.Run(watcher);
             }
         }
+
     }
 }

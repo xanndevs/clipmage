@@ -94,7 +94,11 @@ namespace Clipmage
                 if (Shelf.Visible) Shelf.Hide();
                 else Shelf.Show();
 
-                if (Shelf.Visible) Shelf.BringToFront();
+                if (Shelf.Visible)
+                {
+                    Shelf.WindowState = FormWindowState.Normal;
+                    Shelf.BringToFront();
+                }
             }
         }
     }

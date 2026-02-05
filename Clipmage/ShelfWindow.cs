@@ -16,6 +16,10 @@ namespace Clipmage
         private FlowLayoutPanel _flowPanel;
         private ModernScrollBar _scrollBar;
 
+        // System Tray
+        private NotifyIcon _trayIcon;
+        private ContextMenuStrip _trayMenu;
+
         // Animation State
         private System.Windows.Forms.Timer _layoutTimer;
         private Dictionary<Control, Size> _targetSizes = new Dictionary<Control, Size>();
@@ -33,6 +37,9 @@ namespace Clipmage
 
             // Apply Dark Title Bar
             ApplyDarkTitleBar();
+
+            // Setup System Tray
+            SetupSystemTray();
         }
 
         private void ApplyDarkTitleBar()
@@ -46,11 +53,53 @@ namespace Clipmage
             }
         }
 
+        private void SetupSystemTray()
+        {
+            _trayIcon = new NotifyIcon();
+            _trayIcon.Text = "Clipmage Shelf";
+            // Use the application icon or a default system icon
+            _trayIcon.Icon = Properties.Resources.AppIcon;
+            _trayIcon.Visible = true;
+
+            // Left click to open/restore
+            _trayIcon.MouseClick += (s, e) =>
+            {
+                if (e.Button == MouseButtons.Left)
+                {
+                    WindowController.ToggleShelf();
+                }
+            };
+
+            // Context menu to actually exit the application
+            _trayMenu = new ContextMenuStrip();
+            ToolStripMenuItem exitItem = new ToolStripMenuItem("Exit Clipmage");
+            exitItem.Click += (s, e) =>
+            {
+                _trayIcon.Visible = false;
+                _trayIcon.Dispose();
+                Application.Exit(); // Kill the app
+            };
+            _trayMenu.Items.Add(exitItem);
+            _trayIcon.ContextMenuStrip = _trayMenu;
+        }
+
+        // Override Close to minimize to tray instead
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            if (e.CloseReason == CloseReason.UserClosing)
+            {
+                e.Cancel = true; // Don't close the form
+                this.Hide();     // Hide it instead
+            }
+            base.OnFormClosing(e);
+        }
+
         private void InitializeComponent()
         {
+            this.Text = "Clipmage Shelf";
+            this.ShowInTaskbar = false;
             this.Icon = Properties.Resources.AppIcon;
             this.ShowIcon = true;
-            this.Text = "Clipmage Shelf";
             this.Size = new Size(290, 500);
             this.StartPosition = FormStartPosition.Manual;
             this.Location = new Point(Screen.PrimaryScreen.WorkingArea.Right - this.Width, Screen.PrimaryScreen.WorkingArea.Bottom - this.Height);
