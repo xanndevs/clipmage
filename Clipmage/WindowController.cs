@@ -1,21 +1,20 @@
-﻿using System.Drawing;
+﻿using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 using Clipmage;
 
 namespace Clipmage
 {
-
-
     public static class WindowController
     {
-
         private static List<BlackWindow> activeWindows = new List<BlackWindow>();
-        
-        // Singleton-ish reference to the Shelf
+
         public static ShelfWindow Shelf { get; private set; }
-        
+
         public const int WINDOW_DISAPPEAR_DELAY = 5;
-        // We updated this to require an Image
+
         public static void DisplayWindow(Image screenshot)
         {
             if (screenshot == null) return;
@@ -25,15 +24,12 @@ namespace Clipmage
             );
         }
 
-
         private static Guid AppendWindow(BlackWindow bw)
         {
             activeWindows.Add(bw);
             bw.FormClosed += (sender, args) =>
             {
-                // When the window closes, remove it from the list
                 RemoveWindow(bw.id);
-                //If you aren't using the list anymore, ensure the variable is nulled 
             };
             bw.Show();
             return bw.id;
@@ -45,13 +41,25 @@ namespace Clipmage
             if (windowToRemove != null)
             {
                 activeWindows.Remove(windowToRemove);
-                windowToRemove.Close();
+                if (!windowToRemove.IsDisposed)
+                    windowToRemove.Close();
+            }
+        }
+
+        // New method to bring a window back from the shelf
+        public static void RestoreWindowFromShelf(Guid id, Point mousePos, Rectangle startBounds)
+        {
+            var window = activeWindows.FirstOrDefault(w => w.id == id);
+            if (window != null)
+            {
+                window.WakeUpFromShelf(mousePos, startBounds);
             }
         }
 
         public static void ClearAllWindows()
         {
-            foreach (var window in activeWindows)
+            var windows = activeWindows.ToList();
+            foreach (var window in windows)
             {
                 window.Close();
             }
@@ -74,10 +82,6 @@ namespace Clipmage
             }
         }
 
-
-
-
-        // this Handles the shelf window too
         public static void ToggleShelf()
         {
             if (Shelf == null || Shelf.IsDisposed)
@@ -93,9 +97,5 @@ namespace Clipmage
                 if (Shelf.Visible) Shelf.BringToFront();
             }
         }
-
-
-
-
     }
 }

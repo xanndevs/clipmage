@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
+using System.Runtime.InteropServices; // Required for DllImport
 using static Clipmage.WindowHelpers;
 using static Clipmage.AppConfig;
 
@@ -19,13 +20,36 @@ namespace Clipmage
         private System.Windows.Forms.Timer _layoutTimer;
         private Dictionary<Control, Size> _targetSizes = new Dictionary<Control, Size>();
 
+        // --- DWM Imports for Dark Title Bar ---
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+
+        private const int DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 = 19;
+        private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+
         public ShelfWindow()
         {
             InitializeComponent();
+
+            // Apply Dark Title Bar
+            ApplyDarkTitleBar();
+        }
+
+        private void ApplyDarkTitleBar()
+        {
+            int useDarkMode = 1;
+            // Try the modern attribute (Windows 11 / Windows 10 20H1+)
+            if (DwmSetWindowAttribute(this.Handle, DWMWA_USE_IMMERSIVE_DARK_MODE, ref useDarkMode, sizeof(int)) != 0)
+            {
+                // Fallback for older Windows 10 builds
+                DwmSetWindowAttribute(this.Handle, DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1, ref useDarkMode, sizeof(int));
+            }
         }
 
         private void InitializeComponent()
         {
+            this.Icon = Properties.Resources.AppIcon;
+            this.ShowIcon = true;
             this.Text = "Clipmage Shelf";
             this.Size = new Size(290, 500);
             this.StartPosition = FormStartPosition.Manual;
@@ -37,7 +61,7 @@ namespace Clipmage
             this.FormBorderStyle = FormBorderStyle.SizableToolWindow;
 
             // Set minimum size based on image height config to prevent weird layout issues
-            this.MinimumSize = new Size(SHELF_IMAGE_HEIGHT + 40, SHELF_IMAGE_HEIGHT + 40);
+            this.MinimumSize = new Size(SHELF_IMAGE_HEIGHT + 60, SHELF_IMAGE_HEIGHT + 60);
 
             // 1. ViewPort: The visible window area (clips content)
             _viewPort = new Panel();
@@ -273,9 +297,25 @@ namespace Clipmage
             pb.Size = new Size(targetWidth, targetHeight);
             pb.Tag = sourceId;
 
-            pb.Click += (s, e) =>
+            // Updated Interaction: MouseDown triggers detach
+            pb.MouseDown += (s, e) =>
             {
-                MessageBox.Show($"Clicked Image from Source ID: {sourceId}");
+                if (e.Button == MouseButtons.Left)
+                {
+                    // Convert local click to screen coordinates
+                    Point screenClick = pb.PointToScreen(e.Location);
+                    Rectangle screenBounds = pb.RectangleToScreen(pb.ClientRectangle);
+
+                    // Tell controller to wake up the window
+                    WindowController.RestoreWindowFromShelf(sourceId, screenClick, screenBounds);
+
+                    // Remove from shelf
+                    _flowPanel.Controls.Remove(pb);
+                    _targetSizes.Remove(pb);
+                    pb.Dispose();
+
+                    UpdateScrollParams();
+                }
             };
 
             // Forward wheel events from children to main scroll
@@ -338,14 +378,14 @@ namespace Clipmage
     // High-performance container item that handles rounded corners internally via OnPaint
     public class ShelfItem : PictureBox
     {
-        private int _radius = AppConfig.WINDOW_CORNER_RADIUS;
+        private int _radius = 8;
         private int _borderWidth = 1;
         private Color _borderColor = Color.FromArgb(255, 75, 75, 75);
 
         public ShelfItem()
         {
             this.DoubleBuffered = true;
-            this.BackColor = Color.Transparent;
+            this.BackColor = Color.Transparent; // CRITICAL: This fixes the black corners
             this.BorderStyle = BorderStyle.None;
             this.SizeMode = PictureBoxSizeMode.Zoom;
             this.Margin = new Padding(5);
@@ -357,15 +397,15 @@ namespace Clipmage
             pe.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
             pe.Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
 
-            // Draw Background (Black) restricted to rounded shape
+            // 1. Draw Background (Black) restricted to rounded shape
+            // This ensures inside the round shape is black (letterboxing), but corners are transparent
             using (GraphicsPath path = CreateRoundedPath(this.ClientRectangle, _radius))
-            using (Brush backBrush = new SolidBrush(this.BackColor))
+            using (Brush backBrush = new SolidBrush(Color.Black))
             {
                 pe.Graphics.FillPath(backBrush, path);
             }
 
-            // Draw Image manually to ensure proper clipping
-            // We use SetClip so the image is cut exactly at the rounded path
+            // 2. Draw Image Clipped
             if (this.Image != null)
             {
                 RectangleF imgRect = GetImageRectangle(this.ClientRectangle, this.Image);
@@ -377,8 +417,7 @@ namespace Clipmage
                 }
             }
 
-            // Draw Border
-            // Inset to ensure it stays within bounds
+            // 3. Draw Border
             float halfPen = _borderWidth / 2f;
             RectangleF borderRect = new RectangleF(halfPen, halfPen, this.Width - _borderWidth, this.Height - _borderWidth);
 
@@ -393,7 +432,6 @@ namespace Clipmage
         {
             if (image == null) return RectangleF.Empty;
 
-            // Calculate ratios for Zoom mode
             float ratioX = (float)clientRect.Width / image.Width;
             float ratioY = (float)clientRect.Height / image.Height;
             float ratio = Math.Min(ratioX, ratioY);
