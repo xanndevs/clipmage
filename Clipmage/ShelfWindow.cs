@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
@@ -14,7 +15,9 @@ namespace Clipmage
         private FlowLayoutPanel _flowPanel;
         private ModernScrollBar _scrollBar;
 
-        private const int IMAGE_SHELF_HEIGHT = 80;
+        // Animation State
+        private System.Windows.Forms.Timer _layoutTimer;
+        private Dictionary<Control, Size> _targetSizes = new Dictionary<Control, Size>();
 
         public ShelfWindow()
         {
@@ -32,6 +35,9 @@ namespace Clipmage
             this.TopMost = true;
             this.AllowDrop = true;
             this.FormBorderStyle = FormBorderStyle.SizableToolWindow;
+
+            // Set minimum size based on image height config to prevent weird layout issues
+            this.MinimumSize = new Size(SHELF_IMAGE_HEIGHT + 40, SHELF_IMAGE_HEIGHT + 40);
 
             // 1. ViewPort: The visible window area (clips content)
             _viewPort = new Panel();
@@ -59,15 +65,20 @@ namespace Clipmage
             _scrollBar = new ModernScrollBar();
             // Use Dock.Right but inside the viewport it might push content? 
             // We use Anchor to make it an overlay.
-            _scrollBar.Size = new Size(10, _viewPort.Height);
-            _scrollBar.Location = new Point(_viewPort.Width - (10 + 1), 0);
+            _scrollBar.Size = new Size(12, _viewPort.Height);
+            _scrollBar.Location = new Point(_viewPort.Width - 12, 0);
             _scrollBar.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Right;
-            _scrollBar.Visible = true; // Hidden until needed
+            _scrollBar.Visible = false; // Hidden until needed
             _scrollBar.Scroll += (s, e) =>
             {
                 // Move the content panel up/down
                 _flowPanel.Top = -_scrollBar.Value;
             };
+
+            // 4. Layout Animation Timer
+            _layoutTimer = new System.Windows.Forms.Timer();
+            _layoutTimer.Interval = WINDOW_REFRESH_INTERVAL;
+            _layoutTimer.Tick += OnLayoutTick;
 
             // Compose controls
             _viewPort.Controls.Add(_flowPanel);
@@ -94,6 +105,126 @@ namespace Clipmage
             // This ensures WrapContents calculates lines based on the visible area.
             _flowPanel.MaximumSize = new Size(_viewPort.Width, 0);
             _flowPanel.Width = _viewPort.Width;
+
+            // Trigger dynamic resizing of images based on new width
+            ReflowItems();
+        }
+
+        private void ReflowItems()
+        {
+            // The available width threshold (Viewport width - 40px padding)
+            int maxWidth = _viewPort.Width - 40;
+            if (maxWidth < 1) return;
+
+            bool needsAnimation = false;
+
+            foreach (Control c in _flowPanel.Controls)
+            {
+                if (c is ShelfItem pb && pb.Image != null)
+                {
+                    // 1. Calculate Standard Size based on Config
+                    int targetHeight = SHELF_IMAGE_HEIGHT;
+                    int targetWidth = pb.Image.Width * targetHeight / pb.Image.Height;
+
+                    // 2. Check if Standard Size fits in the current window width
+                    if (targetWidth > maxWidth)
+                    {
+                        // Too big: Cap width to maxWidth and shrink height (maintain aspect ratio)
+                        targetWidth = maxWidth;
+                        targetHeight = targetWidth * pb.Image.Height / pb.Image.Width;
+                    }
+                    // Else: It fits, so we keep the SHELF_IMAGE_HEIGHT calculated in step 1.
+                    // This allows the image to "grow back" when the window is widened.
+
+                    Size targetSize = new Size(targetWidth, targetHeight);
+
+                    // 3. Register target
+                    if (!_targetSizes.ContainsKey(c))
+                    {
+                        _targetSizes[c] = targetSize;
+                        needsAnimation = true;
+                    }
+                    else if (_targetSizes[c] != targetSize)
+                    {
+                        _targetSizes[c] = targetSize;
+                        needsAnimation = true;
+                    }
+
+                    // Check if current size differs significantly
+                    if (Math.Abs(c.Width - targetWidth) > 1 || Math.Abs(c.Height - targetHeight) > 1)
+                    {
+                        needsAnimation = true;
+                    }
+                }
+            }
+
+            if (needsAnimation)
+            {
+                _layoutTimer.Start();
+            }
+        }
+
+        private void OnLayoutTick(object sender, EventArgs e)
+        {
+            bool allDone = true;
+            float lerpSpeed = 0.25f; // Adjust for smoothness
+
+            // Suspend layout during bulk updates to prevent jitter
+            _flowPanel.SuspendLayout();
+
+            // Use a list to iterate keys to allow modification if needed
+            var controls = new List<Control>(_targetSizes.Keys);
+
+            foreach (Control c in controls)
+            {
+                if (c.IsDisposed || c.Parent == null)
+                {
+                    _targetSizes.Remove(c);
+                    continue;
+                }
+
+                Size target = _targetSizes[c];
+                int currentW = c.Width;
+                int currentH = c.Height;
+                bool itemDone = true;
+
+                // Animate Width
+                if (Math.Abs(target.Width - currentW) > 1)
+                {
+                    currentW += (int)((target.Width - currentW) * lerpSpeed);
+                    itemDone = false;
+                }
+                else
+                {
+                    currentW = target.Width; // Snap
+                }
+
+                // Animate Height
+                if (Math.Abs(target.Height - currentH) > 1)
+                {
+                    currentH += (int)((target.Height - currentH) * lerpSpeed);
+                    itemDone = false;
+                }
+                else
+                {
+                    currentH = target.Height; // Snap
+                }
+
+                if (!itemDone) allDone = false;
+
+                if (c.Width != currentW || c.Height != currentH)
+                {
+                    c.Size = new Size(currentW, currentH);
+                }
+            }
+
+            _flowPanel.ResumeLayout(true);
+            UpdateScrollParams(); // Ensure scrollbar stays in sync during animation
+
+            if (allDone)
+            {
+                _layoutTimer.Stop();
+            }
         }
 
         private void UpdateScrollParams()
@@ -122,25 +253,24 @@ namespace Clipmage
         {
             if (img == null) return;
 
-            PictureBox pb = new PictureBox();
+            // Use custom ShelfItem instead of standard PictureBox for better performance
+            ShelfItem pb = new ShelfItem();
             pb.Image = (Image)img.Clone();
-            pb.SizeMode = PictureBoxSizeMode.Zoom;
 
-            // Calculate size
-            int targetHeight = IMAGE_SHELF_HEIGHT;
+            // Calculate initial size logic (using Config)
+            int targetHeight = SHELF_IMAGE_HEIGHT;
             int targetWidth = img.Width * targetHeight / img.Height;
 
             // Constrain max width
-            if (targetWidth > (this.Width - 40))
+            int maxWidth = Math.Max(1, this.ClientSize.Width - 40);
+            if (targetWidth > maxWidth)
             {
-                targetWidth = this.Width - 40;
+                targetWidth = maxWidth;
                 targetHeight = targetWidth * img.Height / img.Width;
             }
 
+            // Set initial size immediately
             pb.Size = new Size(targetWidth, targetHeight);
-            pb.Margin = new Padding(5);
-            pb.BackColor = Color.Black;
-            pb.BorderStyle = BorderStyle.None;
             pb.Tag = sourceId;
 
             pb.Click += (s, e) =>
@@ -151,10 +281,10 @@ namespace Clipmage
             // Forward wheel events from children to main scroll
             pb.MouseWheel += (s, e) => _scrollBar.DoScroll(e.Delta);
 
-            // Apply rounded look using your helper
-            ApplyRoundedRegion(pb, 8, 1, Color.FromArgb(255, 75, 75, 75));
-
             _flowPanel.Controls.Add(pb);
+
+            // Trigger reflow to register it for future animations/adjustments
+            ReflowItems();
         }
 
         private void Shelf_DragEnter(object sender, DragEventArgs e)
@@ -202,6 +332,90 @@ namespace Clipmage
                     catch { }
                 }
             }
+        }
+    }
+
+    // High-performance container item that handles rounded corners internally via OnPaint
+    public class ShelfItem : PictureBox
+    {
+        private int _radius = AppConfig.WINDOW_CORNER_RADIUS;
+        private int _borderWidth = 1;
+        private Color _borderColor = Color.FromArgb(255, 75, 75, 75);
+
+        public ShelfItem()
+        {
+            this.DoubleBuffered = true;
+            this.BackColor = Color.Transparent;
+            this.BorderStyle = BorderStyle.None;
+            this.SizeMode = PictureBoxSizeMode.Zoom;
+            this.Margin = new Padding(5);
+        }
+
+        protected override void OnPaint(PaintEventArgs pe)
+        {
+            pe.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            pe.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            pe.Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+
+            // Draw Background (Black) restricted to rounded shape
+            using (GraphicsPath path = CreateRoundedPath(this.ClientRectangle, _radius))
+            using (Brush backBrush = new SolidBrush(this.BackColor))
+            {
+                pe.Graphics.FillPath(backBrush, path);
+            }
+
+            // Draw Image manually to ensure proper clipping
+            // We use SetClip so the image is cut exactly at the rounded path
+            if (this.Image != null)
+            {
+                RectangleF imgRect = GetImageRectangle(this.ClientRectangle, this.Image);
+                using (GraphicsPath path = CreateRoundedPath(this.ClientRectangle, _radius))
+                {
+                    pe.Graphics.SetClip(path);
+                    pe.Graphics.DrawImage(this.Image, imgRect);
+                    pe.Graphics.ResetClip();
+                }
+            }
+
+            // Draw Border
+            // Inset to ensure it stays within bounds
+            float halfPen = _borderWidth / 2f;
+            RectangleF borderRect = new RectangleF(halfPen, halfPen, this.Width - _borderWidth, this.Height - _borderWidth);
+
+            using (GraphicsPath borderPath = CreateRoundedPath(borderRect, Math.Max(1, _radius - halfPen)))
+            using (Pen pen = new Pen(_borderColor, _borderWidth))
+            {
+                pe.Graphics.DrawPath(pen, borderPath);
+            }
+        }
+
+        private RectangleF GetImageRectangle(Rectangle clientRect, Image image)
+        {
+            if (image == null) return RectangleF.Empty;
+
+            // Calculate ratios for Zoom mode
+            float ratioX = (float)clientRect.Width / image.Width;
+            float ratioY = (float)clientRect.Height / image.Height;
+            float ratio = Math.Min(ratioX, ratioY);
+
+            float w = image.Width * ratio;
+            float h = image.Height * ratio;
+            float x = clientRect.X + (clientRect.Width - w) / 2;
+            float y = clientRect.Y + (clientRect.Height - h) / 2;
+
+            return new RectangleF(x, y, w, h);
+        }
+
+        private GraphicsPath CreateRoundedPath(RectangleF rect, float radius)
+        {
+            GraphicsPath path = new GraphicsPath();
+            float d = radius * 2;
+            path.AddArc(rect.X, rect.Y, d, d, 180, 90);
+            path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
+            path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
+            path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
+            path.CloseFigure();
+            return path;
         }
     }
 
@@ -324,9 +538,7 @@ namespace Clipmage
             // Calculate Thumb
             // Proportion: Viewport / TotalContent
             int contentTotal = _maximum + _largeChange;
-            if (contentTotal <= 0) { 
-            return;
-            } 
+            if (contentTotal <= 0) return;
 
             float viewRatio = (float)_largeChange / contentTotal;
             int thumbHeight = Math.Max(20, (int)(this.Height * viewRatio)); // Minimum 20px thumb

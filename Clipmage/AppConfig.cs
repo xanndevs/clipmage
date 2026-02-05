@@ -19,8 +19,11 @@
 
         // Visual Defaults
         public const int BUTTON_CORNER_RADIUS = 4;
+        public const int WINDOW_CORNER_RADIUS = 8;
         public const int INTERACTION_BUTTON_SIZE = 32;
         public const int DRAG_WINDOW_MAXIMUM_WIDTH = 300;
         public const int DRAG_WINDOW_MAXIMUM_HEIGHT = 300;
+
+        public const int SHELF_IMAGE_HEIGHT = 80;
     }
 }
