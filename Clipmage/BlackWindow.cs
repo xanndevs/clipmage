@@ -9,12 +9,14 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using Clipmage;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
 using Windows.System;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 
 using static Clipmage.WindowHelpers;
+using static Clipmage.AppConfig;
 
 namespace Clipmage
 {
@@ -22,13 +24,11 @@ namespace Clipmage
 
     public class BlackWindow : Form
     {
-        private int FixedWindowWidth = 300;
-        private int FixedWindowHeight = 300;
-        private const int buttonSize = 32;
+
+
         private Image _img;
 
         private int _durationSeconds;
-        private int _cornerRadius = 4;
         private bool _isPinned = false;
         private Button _pinButton;
         private Button _editButton;
@@ -47,8 +47,7 @@ namespace Clipmage
         private float _targetScale = 1.0f;
         private PointF _anchorRatio;      // Where we grabbed the window (0.0-1.0)
         private System.Windows.Forms.Timer _animationTimer;
-        private const float DRAG_SCALE_FACTOR = 0.2f;
-        private const float FILE_DRAG_OFFSET = 8;
+
 
         // --- File Drag Logic Variables ---
         private DateTime _lastMouseMoveTime;       // Tracks when we last moved the mouse
@@ -57,16 +56,9 @@ namespace Clipmage
         private Point _fileDragStartPos;           // Where the active file drag started
         private bool _isFileDragActive = false;    // Are we currently in a DoDragDrop loop?
         private bool _wasFileDragCancelledByMovement = false; // Flag to handle resume logic
-        private const int DRAG_WAIT_MS = 200;      // How long to hold still before file drag starts
-        private const int DRAG_CANCEL_DISTANCE = 100; // Pixels to move to cancel the wait
 
-        // Physics Constants 
-        private const float FRICTION = 0.87f;
-        private const float MIN_VELOCITY = 0.85f;
-        private const int WINDOW_REFRESH_INTERVAL = 8;
 
-        private const float BOUNCE_FACTOR = 0.85f;
-        private const int SMOOTHING_RANGE_MS = 14;
+
 
         // Smoothing for throw velocity
         private Queue<(DateTime Time, Point Position)> _dragHistory = new Queue<(DateTime, Point)>();
@@ -131,13 +123,13 @@ namespace Clipmage
 
             if ((double)this.BackgroundImage.Height / this.BackgroundImage.Width > 1)
             {
-                this.Height = FixedWindowHeight;
-                this.Width = (BackgroundImage.Width * FixedWindowHeight) / BackgroundImage.Height;
+                this.Height = DRAG_WINDOW_MAXIMUM_HEIGHT;
+                this.Width = (BackgroundImage.Width * DRAG_WINDOW_MAXIMUM_HEIGHT) / BackgroundImage.Height;
             }
             else
             {
-                this.Width = FixedWindowWidth;
-                this.Height = (BackgroundImage.Height * FixedWindowWidth) / BackgroundImage.Width;
+                this.Width = DRAG_WINDOW_MAXIMUM_WIDTH;
+                this.Height = (BackgroundImage.Height * DRAG_WINDOW_MAXIMUM_WIDTH) / BackgroundImage.Width;
             }
 
             // Capture the calculated full size as our base
@@ -544,8 +536,8 @@ namespace Clipmage
         {
             _pinButton = new Button();
             _pinButton.Text = "\ue718";
-            _pinButton.Size = new Size(buttonSize, buttonSize);
-            _pinButton.Location = new Point((this.Width - buttonSize) - 8, 8);
+            _pinButton.Size = new Size(INTERACTION_BUTTON_SIZE, INTERACTION_BUTTON_SIZE);
+            _pinButton.Location = new Point((this.Width - INTERACTION_BUTTON_SIZE) - 8, 8);
 
             // Anchor ensures the button stays in the corner if we resize (though we hide it during drag)
             _pinButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
@@ -565,7 +557,7 @@ namespace Clipmage
             _pinButton.Click += (s, e) => TogglePin();
 
             // We still use manual region rounding for the BUTTON itself
-            ApplyRoundedRegion(_pinButton, _cornerRadius, 1, Color.Empty);
+            ApplyRoundedRegion(_pinButton, BUTTON_CORNER_RADIUS, 1, Color.Empty);
 
             this.Controls.Add(_pinButton);
         }
@@ -599,8 +591,8 @@ namespace Clipmage
         {
             _editButton = new Button();
             _editButton.Text = "\ue70f";
-            _editButton.Size = new Size(buttonSize, buttonSize);
-            _editButton.Location = new Point(this.Width - ((buttonSize + 8) * 2), 8);
+            _editButton.Size = new Size(INTERACTION_BUTTON_SIZE, INTERACTION_BUTTON_SIZE);
+            _editButton.Location = new Point(this.Width - ((INTERACTION_BUTTON_SIZE + 8) * 2), 8);
 
             // Anchor ensures the button stays in the corner if we resize (though we hide it during drag)
             _editButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
@@ -619,7 +611,7 @@ namespace Clipmage
             _editButton.Click += (s, e) => SwitchToEdit();
 
             // We still use manual region rounding for the BUTTON itself
-            ApplyRoundedRegion(_editButton, _cornerRadius, 1, Color.Empty);
+            ApplyRoundedRegion(_editButton, BUTTON_CORNER_RADIUS, 1, Color.Empty);
 
             this.Controls.Add(_editButton);
         }
