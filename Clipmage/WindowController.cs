@@ -9,7 +9,7 @@ namespace Clipmage
 {
     public static class WindowController
     {
-        private static List<BlackWindow> activeWindows = new List<BlackWindow>();
+        private static List<ImageWindow> activeWindows = new List<ImageWindow>();
 
         public static ShelfWindow Shelf { get; private set; }
 
@@ -20,11 +20,11 @@ namespace Clipmage
             if (screenshot == null) return;
 
             AppendWindow(
-                new BlackWindow(screenshot, WINDOW_DISAPPEAR_DELAY)
+                new ImageWindow(screenshot, WINDOW_DISAPPEAR_DELAY)
             );
         }
 
-        private static Guid AppendWindow(BlackWindow bw)
+        private static Guid AppendWindow(ImageWindow bw)
         {
             activeWindows.Add(bw);
             bw.FormClosed += (sender, args) =>
@@ -46,13 +46,22 @@ namespace Clipmage
             }
         }
 
-        // New method to bring a window back from the shelf
-        public static void RestoreWindowFromShelf(Guid id, Point mousePos, Rectangle startBounds)
+        // New method to bring a window back from the shelf... a.k.a. wake up samurai
+        public static void RestoreWindowFromShelf(Guid id, Point mousePos, Rectangle startBounds, Image img = null)
         {
             var window = activeWindows.FirstOrDefault(w => w.id == id);
             if (window != null)
             {
                 window.WakeUpFromShelf(mousePos, startBounds);
+            }
+            else
+            {
+                // Optionally, handle the case where the window is not found
+                // For example, lets create a blackwindow for this case so user can still interact with it
+
+                var newWindow = new ImageWindow(img,  WINDOW_DISAPPEAR_DELAY);
+                activeWindows.Add(newWindow);
+                newWindow.WakeUpFromShelf(mousePos, startBounds);
             }
         }
 

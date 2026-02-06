@@ -20,7 +20,7 @@ using static Clipmage.AppConfig;
 
 namespace Clipmage
 {
-    public class BlackWindow : Form
+    public class ImageWindow : Form
     {
         private Image _img;
 
@@ -76,7 +76,7 @@ namespace Clipmage
 
         public readonly Guid id;
 
-        public BlackWindow(Image screenshotToDisplay, int durationSeconds)
+        public ImageWindow(Image screenshotToDisplay, int durationSeconds)
         {
             id = Guid.NewGuid();
             _durationSeconds = durationSeconds;

@@ -356,7 +356,7 @@ namespace Clipmage
                     Rectangle screenBounds = pb.RectangleToScreen(pb.ClientRectangle);
 
                     // Tell controller to wake up the window
-                    WindowController.RestoreWindowFromShelf(sourceId, screenClick, screenBounds);
+                    WindowController.RestoreWindowFromShelf(sourceId, screenClick, screenBounds, img);
 
                     // Remove from shelf
                     _flowPanel.Controls.Remove(pb);
