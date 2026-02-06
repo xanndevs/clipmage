@@ -9,22 +9,30 @@ namespace Clipmage
 {
     public static class WindowController
     {
-        private static List<ImageWindow> activeWindows = new List<ImageWindow>();
+        private static List<PlaceableWindow> activeWindows = new List<PlaceableWindow>();
 
         public static ShelfWindow Shelf { get; private set; }
 
         public const int WINDOW_DISAPPEAR_DELAY = 5;
 
-        public static void DisplayWindow(Image screenshot)
+        public static Guid DisplayImageWindow(Image screenshot)
         {
-            if (screenshot == null) return;
+            if (screenshot == null) return Guid.Empty;
 
-            AppendWindow(
+            return AppendWindow(
                 new ImageWindow(screenshot, WINDOW_DISAPPEAR_DELAY)
             );
         }
 
-        private static Guid AppendWindow(ImageWindow bw)
+        public static Guid DisplayTextWindow(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return Guid.Empty;
+
+
+            return AppendWindow( new TextWindow(text, WINDOW_DISAPPEAR_DELAY) );
+        }
+
+        private static Guid AppendWindow(PlaceableWindow bw)
         {
             activeWindows.Add(bw);
             bw.FormClosed += (sender, args) =>
@@ -83,12 +91,28 @@ namespace Clipmage
             }
         }
 
+        public static void HideWindowWithId(Guid id)
+        {
+            var windowToClose = activeWindows.FirstOrDefault(w => w.id == id);
+            if (windowToClose != null)
+            {
+                windowToClose.Hide();
+            }
+        }
+
         public static void ShowAllWindows()
         {
             foreach (var window in activeWindows)
             {
                 window.Show();
             }
+        }
+
+        public static PlaceableWindow GetWindowById(Guid id)
+        {
+
+            return activeWindows.FirstOrDefault(w => w.id == id);
+
         }
 
         public static void ToggleShelf()

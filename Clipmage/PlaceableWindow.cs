@@ -19,7 +19,7 @@ namespace Clipmage
         private int _durationSeconds;
         private bool _isPinned = false;
 
-        private Button _pinButton;
+        protected Button _pinButton;
         private Button _editButton;
 
         private System.Windows.Forms.Timer _lifeTimer;
@@ -175,15 +175,13 @@ namespace Clipmage
             {
                 _lifeTimer.Stop();
                 _pinButton.Text = "\uE77a";
-                _pinButton.ForeColor = Color.LightGray;
-                _pinButton.BackColor = Color.FromArgb(255, 76, 162, 230);
+                _pinButton.ForeColor = Color.FromArgb(255, 76, 162, 230);
                 _pinButton.FlatAppearance.BorderColor = Color.FromArgb(255, 48, 117, 171);
             }
             else
             {
                 _pinButton.Text = "\ue718";
                 _pinButton.ForeColor = Color.LightGray;
-                _pinButton.BackColor = Color.FromArgb(255, 39, 41, 42);
                 _pinButton.FlatAppearance.BorderColor = Color.DimGray;
                 _lifeTimer.Stop();
                 SetupLifeTimer(2);

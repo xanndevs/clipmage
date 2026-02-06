@@ -100,7 +100,7 @@ namespace Clipmage
             this.ShowInTaskbar = false;
             this.Icon = Properties.Resources.AppIcon;
             this.ShowIcon = true;
-            this.Size = new Size(290, 500);
+            this.Size = new Size(290, 400);
             this.StartPosition = FormStartPosition.Manual;
             this.Location = new Point(Screen.PrimaryScreen.WorkingArea.Right - this.Width, Screen.PrimaryScreen.WorkingArea.Bottom - this.Height);
             this.BackColor = Color.FromArgb(20, 20, 20);
@@ -376,18 +376,52 @@ namespace Clipmage
             ReflowItems();
         }
 
+        public void CreateShelvedTextWindow(string text)
+        {
+            // 1. Create the window as normal (this adds it to activeWindows)
+            Guid id = WindowController.DisplayTextWindow(text);
+
+            if (id == Guid.Empty) return;
+
+            // 2. Retrieve the specific window instance
+            // (We cast to TextWindow to access specific methods if needed, 
+            // though GetSnapshot is likely on the base class)
+            var window = WindowController.GetWindowById(id);
+
+            if (window != null)
+            {
+                // 3. Force a snapshot BEFORE hiding it
+                // This ensures the shelf gets a real image, not a blank box.
+                Image snap = window.GetSnapshot();
+
+                // 4. Add to Shelf immediately
+                AddSource(id, snap);
+
+                // 5. Hide it immediately
+                // Doing this in the same execution block often prevents the 
+                // window from even flickering on screen.
+                window.Hide();
+            }
+        }
+
         private void Shelf_DragEnter(object sender, DragEventArgs e)
         {
             if (e.Data.GetDataPresent("ClipmageID") ||
                 e.Data.GetDataPresent(DataFormats.Bitmap) ||
-                e.Data.GetDataPresent(DataFormats.FileDrop))
-            {
+                e.Data.GetDataPresent(DataFormats.FileDrop)) {
+
                 e.Effect = DragDropEffects.Move;
+                return;
             }
-            else
+
+            if (e.Data.GetDataPresent(DataFormats.UnicodeText) || e.Data.GetDataPresent(DataFormats.Text))
             {
-                e.Effect = DragDropEffects.None;
+                e.Effect = DragDropEffects.Copy; // Show "Copy" cursor
+                return;
             }
+
+            e.Effect = DragDropEffects.None;
+          
         }
 
         private void Shelf_DragDrop(object sender, DragEventArgs e)
@@ -419,6 +453,21 @@ namespace Clipmage
                         }
                     }
                     catch { }
+                }
+            }
+            else if (e.Data.GetDataPresent(DataFormats.UnicodeText) || e.Data.GetDataPresent(DataFormats.Text))
+            {
+                // 1. Retrieve the text safely
+                string text = (string)e.Data.GetData(DataFormats.UnicodeText);
+                if (string.IsNullOrEmpty(text))
+                {
+                    text = (string)e.Data.GetData(DataFormats.Text);
+                }
+
+                // 2. Pass it to your controller to generate the hidden, shelved window
+                if (!string.IsNullOrEmpty(text))
+                {
+                    CreateShelvedTextWindow(text);
                 }
             }
         }
