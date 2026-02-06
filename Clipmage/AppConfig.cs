@@ -16,14 +16,26 @@
 
         public const int WINDOW_REFRESH_INTERVAL = 8; // ~120FPS animation calculation
 
+        // TextBox Behavior
+        public const bool IS_TAB_TO_INDENT = true;
+        public const int TAB_WIDTH = 4;
+
+
+
 
         // Visual Defaults
-        public const int BUTTON_CORNER_RADIUS = 4;
+        public const int BUTTON_CORNER_RADIUS = 5;
         public const int WINDOW_CORNER_RADIUS = 8;
         public const int INTERACTION_BUTTON_SIZE = 32;
         public const int DRAG_WINDOW_MAXIMUM_WIDTH = 300;
         public const int DRAG_WINDOW_MAXIMUM_HEIGHT = 300;
 
+        public const int TEXTBOX_FONT_SIZE = 12;
+
         public const int SHELF_IMAGE_HEIGHT = 80;
+
+        public const int PADDING_SMALL = 4;
+        public const int PADDING_NORMAL = 8;
+        public const int PADDING_LARGE = 16;
     }
 }

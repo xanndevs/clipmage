@@ -15,6 +15,8 @@ namespace Clipmage
             WindowController.ToggleShelf();
             WindowController.Shelf.Hide();
 
+            WindowController.DisplayTextWindow("Clipmage is running in the background...\nPress Ctrl+Shift+S to capture a screenshot.");
+
             // Create the invisible listener
             using (ClipboardWatcher watcher = new ClipboardWatcher())
             {
@@ -25,7 +27,7 @@ namespace Clipmage
                     Image img = Clipboard.GetImage();
 
                     // 2. Show the window
-                    WindowController.DisplayWindow(img);
+                    WindowController.DisplayImageWindow(img);
                 };
 
                 // Run the app in the background
