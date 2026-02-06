@@ -234,6 +234,12 @@ namespace Clipmage
                 _isDragging = true;
                 _physicsTimer.Stop();
                 _lifeTimer.Stop();
+                if (_fadeTimer != null)
+                {
+                    _fadeTimer.Stop();
+                    this.Opacity = 1.0;
+
+                }
                 _velocity = PointF.Empty;
 
                 _lastMouseMoveTime = DateTime.Now;
@@ -531,14 +537,14 @@ namespace Clipmage
         private void StartFadeOut()
         {
             _fadeTimer = new System.Windows.Forms.Timer();
-            _fadeTimer.Interval = 16;
+            _fadeTimer.Interval = WINDOW_REFRESH_INTERVAL;
             _fadeTimer.Tick += OnFadeTick;
             _fadeTimer.Start();
         }
 
         private void OnFadeTick(object sender, EventArgs e)
         {
-            if (this.Opacity > 0) this.Opacity -= 0.05;
+            if (this.Opacity > 0) this.Opacity -= FADE_OUT_PERCENT;
             else { _fadeTimer.Stop(); _fadeTimer.Dispose(); _lifeTimer.Dispose(); this.Close(); }
         }
 
