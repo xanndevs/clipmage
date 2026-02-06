@@ -20,8 +20,31 @@
     <PackageReleaseNotes>Clipmage is a Windows application that lets you manage the screenshots you take, easier than ever. Say goodbye to the snipping tool notifications and welcome the Clipmage...</PackageReleaseNotes>
     <Company>xanndevs</Company>
     <ProduceReferenceAssembly>True</ProduceReferenceAssembly>
-    <Version>1.1.0</Version>
+
+	  
+	  
+
+	  <DebugType>none</DebugType>
+	  <DebugSymbols>false</DebugSymbols>
+    <Version>1.1.1</Version>
+    <Product>$(AssemblyName)_v$(Version).exe</Product>
   </PropertyGroup>
+
+
+
+	<PropertyGroup Condition="'$(IsPublish)' == 'true'">
+		<PublishSingleFile>true</PublishSingleFile>
+		<PublishReadyToRun>false</PublishReadyToRun>
+		<SelfContained>true</SelfContained>
+		<SelfContained>true</SelfContained>
+		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
+		<IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+		<EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+
+		<PublishedSingleFileName>
+			$(AssemblyName)_standalone_v$(Version).exe
+		</PublishedSingleFileName>
+	</PropertyGroup>
 
   <ItemGroup>
     <Content Include="Clipmage.ico" />
@@ -60,6 +83,11 @@
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
     </None>
+  </ItemGroup>
+
+ <ItemGroup>
+	 <TrimmerRootAssembly Include="System.Windows.Forms" />
+	 <TrimmerRootAssembly Include="System.Drawing.Common" />
   </ItemGroup>
 
 </Project>

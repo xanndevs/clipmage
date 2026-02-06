@@ -20,7 +20,8 @@
         public const bool IS_TAB_TO_INDENT = true;
         public const int TAB_WIDTH = 4;
 
-
+        // Animation Constants
+        public const double FADE_OUT_PERCENT = 0.025;
 
 
         // Visual Defaults
