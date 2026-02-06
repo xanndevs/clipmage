@@ -20,6 +20,7 @@
     <PackageReleaseNotes>Clipmage is a Windows application that lets you manage the screenshots you take, easier than ever. Say goodbye to the snipping tool notifications and welcome the Clipmage...</PackageReleaseNotes>
     <Company>xanndevs</Company>
     <ProduceReferenceAssembly>True</ProduceReferenceAssembly>
+    <Version>1.1.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
