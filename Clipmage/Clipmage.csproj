@@ -31,6 +31,7 @@
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
+    <None Include="PlaceableWindow.cs" />
   </ItemGroup>
 
   <ItemGroup>
