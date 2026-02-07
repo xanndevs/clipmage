@@ -61,6 +61,7 @@ namespace Clipmage
             SetupReleaseLabel();
             SetupInstallPrompt();
 
+            SetupCancelButton();
             SetupUpdateButton();
             SetupCancelButton();
 
@@ -192,7 +193,7 @@ namespace Clipmage
             _updateButton.Click += (s, e) =>
             {
                 if (!_isUpdating)
-                {
+            {
                 BeginUpdateProcess();
                 }
                 
@@ -244,7 +245,7 @@ namespace Clipmage
             {
                 MessageBox.Show("Invalid download URL.");
                 return;
-            }
+        }
 
             // 2. Setup UI for Download State
             _cts = new CancellationTokenSource();
@@ -257,10 +258,10 @@ namespace Clipmage
             _cancelButton.Text = "Cancel";
 
             try
-            {
+        {
                 // 3. Define Progress Handler
                 var progressHandler = new Progress<double>(percent =>
-                {
+            {
                     // Update UI on the main thread
                     _progressBar.Value = (int)percent;
 
@@ -305,10 +306,13 @@ namespace Clipmage
 
         public static async Task<string> DownloadFileToTempAsync(string fileUrl, IProgress<double> progress, CancellationToken token)
         {
+            // 1. Create a unique temporary file path 
+            // We use a GUID to ensure the name doesn't conflict with existing files
             string tempFolder = Path.GetTempPath();
             string fileName = $"{Guid.NewGuid()}.exe";
             string filePath = Path.Combine(tempFolder, fileName);
 
+            // 2. Initialize HttpClient (Best practice: use a shared instance in real apps)
             using (HttpClient client = new HttpClient())
             {
                 try
@@ -420,6 +424,25 @@ namespace Clipmage
             }
         }
 
+        private void SetupCancelButton()
+        {
+            _CancelButton = new Button();
+
+            _CancelButton.Text = "Cancel";
+
+            _CancelButton.Location = new Point(this.ClientSize.Width - PADDING_NORMAL - _CancelButton.Width, this.ClientSize.Height - PADDING_NORMAL - _CancelButton.Height);
+
+
+
+            this.Controls.Add(_CancelButton);
+
+            _CancelButton.Click += (s, e) =>
+            {
+                this.Hide();
+            };
+
+
+        }
 
         // Fix: Changed to async Task to avoid UI freezing
         public async Task CheckForUpdates()

@@ -21,11 +21,14 @@
     <Company>xanndevs</Company>
     <ProduceReferenceAssembly>True</ProduceReferenceAssembly>
 
-	  
-	  
+	  <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+	  <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+	  <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
 
-	  <DebugType>none</DebugType>
-	  <DebugSymbols>false</DebugSymbols>
+	  <PublishedSingleFileName>
+		  $(AssemblyName)_standalone_v$(Version).exe
+	  </PublishedSingleFileName>
+
     <Version>1.1.1</Version>
     <Product>$(AssemblyName)_v$(Version).exe</Product>
   </PropertyGroup>

@@ -412,7 +412,7 @@ namespace Clipmage
                     float dy = newest.Position.Y - oldest.Position.Y;
                     float pxPerMsX = dx / (float)totalMs;
                     float pxPerMsY = dy / (float)totalMs;
-                    _velocity = new PointF(pxPerMsX * WINDOW_REFRESH_INTERVAL, pxPerMsY * WINDOW_REFRESH_INTERVAL);
+                    _velocity = new PointF(Math.Min(pxPerMsX * WINDOW_REFRESH_INTERVAL, MAX_VELOCITY), Math.Min(pxPerMsY * WINDOW_REFRESH_INTERVAL, MAX_VELOCITY));
                 }
             }
 
@@ -510,6 +510,9 @@ namespace Clipmage
         private void OnPhysicsTick(object sender, EventArgs e)
         {
             if (this.IsDisposed || !this.Created) { _physicsTimer.Stop(); return; }
+            //_velocity = new PointF(_velocity.X, _velocity.Y + 9); // Apply gravity to vertical velocity
+            _velocity.X = Math.Min(_velocity.X, MAX_VELOCITY);
+            _velocity.Y = Math.Min(_velocity.Y, MAX_VELOCITY);
 
             float nextX = this.Left + _velocity.X;
             float nextY = this.Top + _velocity.Y;
