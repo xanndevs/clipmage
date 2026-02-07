@@ -137,7 +137,7 @@ namespace Clipmage
             SetTabWidth(_textBox, TAB_WIDTH);
 
 
-            _textBox.Font = new System.Drawing.Font("Segoe UI", TEXTBOX_FONT_SIZE);
+            _textBox.Font = new System.Drawing.Font("Segoe UI", FONT_SIZE_NORMAL);
 
             // Initial Positioning
             _textBox.Location = new Point(0,0);
