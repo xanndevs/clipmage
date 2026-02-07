@@ -4,16 +4,74 @@ using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 using static Clipmage.WindowHelpers;
 using static Clipmage.AppConfig;
+using Clipmage;
 
 namespace Clipmage
 {
 
+    public class RoundedButton : Button
+    {
+        public bool isAutoResizing = true;
 
-    /// <summary>
-    /// A high-performance image container with rounded corners.
-    /// Replaces standard PictureBox for Shelf items and BlackWindow display.
-    /// </summary>
-    public class RoundedImageBox : PictureBox
+        public RoundedButton()
+        {
+            // 1. Apply default visual styles
+            this.FlatStyle = FlatStyle.Flat;
+            this.FlatAppearance.BorderSize = 0;
+            this.FlatAppearance.BorderColor = Color.DimGray;
+            this.BackColor = Color.LightGray; // Default background color
+            this.TextAlign = ContentAlignment.MiddleCenter;
+
+            // Fix text rendering
+            this.UseCompatibleTextRendering = true;
+            this.UseVisualStyleBackColor = false; // Required for custom BackColor to show
+
+            // 2. Set default Font (Optional: Remove if you want to inherit form font)
+            this.Font = new Font("Segoe UI", FONT_SIZE_NORMAL, FontStyle.Regular);
+
+            Size textSize = TextRenderer.MeasureText(this.Text, this.Font);
+            this.Width = textSize.Width;
+            this.Height = INTERACTION_BUTTON_SIZE;
+
+
+            this.Text = "";
+            this.ResumeLayout(false);
+
+            // This replaces the manual "textSize.Width + Padding" math.
+            // The button will now automatically grow to fit text + this padding.
+            this.Padding = new Padding(0);
+        }
+
+        // This event fires whenever the button changes size (including creation)
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+
+            // Re-apply the rounded region dynamically based on the new size
+            WindowHelpers.ApplyRoundedRegion(this, BUTTON_CORNER_RADIUS, 1, Color.Empty);
+
+        }
+
+        protected override void OnTextChanged(EventArgs e)
+        {
+            base.OnTextChanged(e);
+            if (isAutoResizing)
+            {
+                Size textSize = TextRenderer.MeasureText(this.Text, this.Font);
+                this.Width = textSize.Width + (PADDING_SMALL * 2);
+            }
+
+        }
+
+    }
+
+
+
+/// <summary>
+/// A high-performance image container with rounded corners.
+/// Replaces standard PictureBox for Shelf items and BlackWindow display.
+/// </summary>
+public class RoundedImageBox : PictureBox
     {
         private int _radius = 8;
         private int _borderWidth = 0;
@@ -113,4 +171,6 @@ namespace Clipmage
             return new RectangleF(x, y, w, h);
         }
     }
+
+
 }

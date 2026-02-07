@@ -9,7 +9,7 @@
         public const float DRAG_SCALE_FACTOR = 0.2f;
         public const float FILE_DRAG_OFFSET = 8;
         // Physics Constants 
-        public const float FRICTION = 0.99f;
+        public const float FRICTION = 0.87f;
         public const float BOUNCE_FACTOR = 1.45f;
         public const float MIN_VELOCITY = 0.85f;
         public const float MAX_VELOCITY = 60f;
@@ -28,11 +28,14 @@
         // Visual Defaults
         public const int BUTTON_CORNER_RADIUS = 5;
         public const int WINDOW_CORNER_RADIUS = 8;
+        public const int DIALOG_BUTTON_SIZE = 24;
         public const int INTERACTION_BUTTON_SIZE = 32;
         public const int DRAG_WINDOW_MAXIMUM_WIDTH = 300;
         public const int DRAG_WINDOW_MAXIMUM_HEIGHT = 300;
 
+        public const int FONT_SIZE_SMALL = 10;
         public const int FONT_SIZE_NORMAL = 12;
+        public const int FONT_SIZE_LARGE = 14;
 
         public const int SHELF_IMAGE_HEIGHT = 80;
 
