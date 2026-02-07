@@ -9,8 +9,8 @@
         public const float DRAG_SCALE_FACTOR = 0.20f;
         public const float FILE_DRAG_OFFSET = 8;
         // Physics Constants 
-        public const float FRICTION = 0.99f;
-        public const float BOUNCE_FACTOR = 1.45f;
+        public const float FRICTION = 0.87f;
+        public const float BOUNCE_FACTOR = 1.3f;
         public const float MIN_VELOCITY = 0.85f;
         public const float MAX_VELOCITY = 120f;
         public const int SMOOTHING_RANGE_MS = 14;
@@ -39,5 +39,11 @@
         public const int PADDING_SMALL = 4;
         public const int PADDING_NORMAL = 8;
         public const int PADDING_LARGE = 16;
+
+        //BOUNCY WINDOW PRESET
+        //public const float FRICTION = 0.99f;
+        //public const float BOUNCE_FACTOR = 1.45f;
+        //public const float MIN_VELOCITY = 0.85f;
+        //public const float MAX_VELOCITY = 90f;
     }
 }
