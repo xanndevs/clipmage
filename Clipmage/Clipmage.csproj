@@ -29,10 +29,11 @@
 		  $(AssemblyName)_standalone_v$(Version).exe
 	  </PublishedSingleFileName>
 
-    <Version>1.1.1</Version>
+
+	  <Version>1.2.0</Version>
     <Product>$(AssemblyName)_v$(Version).exe</Product>
   </PropertyGroup>
-
+    
 
 
 	<PropertyGroup Condition="'$(IsPublish)' == 'true'">
