@@ -172,5 +172,22 @@ public class RoundedImageBox : PictureBox
         }
     }
 
+    public class GhostTextBox : TextBox
+    {
+        private const int WM_NCHITTEST = 0x84;
+        private const int HTTRANSPARENT = -1;
 
+        protected override void WndProc(ref Message m)
+        {
+            // If we are in "Read Only" mode, tell Windows that the mouse 
+            // is actually over the window BENEATH us (HTTRANSPARENT).
+            if (m.Msg == WM_NCHITTEST && this.ReadOnly)
+            {
+                m.Result = (IntPtr)HTTRANSPARENT;
+                return;
+            }
+
+            base.WndProc(ref m);
+        }
+    }
 }

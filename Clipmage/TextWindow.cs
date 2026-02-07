@@ -11,7 +11,7 @@ namespace Clipmage
     public class TextWindow : PlaceableWindow
     {
         private Panel _textContainer; // Acts as the viewport for the text
-        private TextBox _textBox;
+        private GhostTextBox _textBox;
         private ModernScrollBar _scrollBar;
         private bool isEditing = false;
         private Button _editButton;
@@ -125,9 +125,9 @@ namespace Clipmage
 
         private void SetupTextBox(string text)
         {
-            _textBox = new TextBox();
+            _textBox = new GhostTextBox();
             _textBox.Multiline = true;
-            _textBox.ReadOnly = false;
+            _textBox.ReadOnly = true;
             _textBox.Dock = DockStyle.None;
             _textBox.BackColor = _textContainer.BackColor;
             _textBox.ForeColor = Color.FromArgb(250, 250, 250);
@@ -147,7 +147,7 @@ namespace Clipmage
             // Calculate height AFTER setting width and text
             _textBox.Height = Math.Max(_textContainer.Height, GetTextHeight(text, _textBox));
 
-            _textBox.Enabled = false; // Start in view-only mode
+            //_textBox.Enabled = false; // Start in view-only mode
 
             _textBox.MouseWheel += (s, e) => { if (_scrollBar != null) _scrollBar.DoScroll(e.Delta); };
 
@@ -159,6 +159,11 @@ namespace Clipmage
             };
 
             ApplyRoundedRegion(_textContainer, WINDOW_CORNER_RADIUS);
+
+
+            _textContainer.MouseDown += OnMouseDown;
+            _textContainer.MouseMove += OnMouseMove;
+            _textContainer.MouseUp += OnMouseUp;
 
 
             _textContainer.Controls.Add(_textBox);
@@ -249,7 +254,7 @@ namespace Clipmage
             {
                 // Save/Stop Editing
                 isEditing = false;
-                _textBox.Enabled = false;
+                _textBox.ReadOnly = true;
                 _editButton.Text = "\ue70f";
                 //_editButton.BackColor = Color.FromArgb(255, 39, 41, 42);
                 _editButton.ForeColor= Color.LightGray;
@@ -266,7 +271,7 @@ namespace Clipmage
                 _editButton.ForeColor = Color.FromArgb(255, 76, 162, 230);
                 _editButton.FlatAppearance.BorderColor = Color.FromArgb(255, 48, 117, 171);
                 isEditing = true;
-                _textBox.Enabled = true;
+                _textBox.ReadOnly = false;
                 _textBox.Focus();
                 _editButton.Text = "\ue74e"; // Save icon
             }
