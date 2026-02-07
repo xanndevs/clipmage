@@ -6,12 +6,13 @@
         // Drag & Drop Behavior
         public const int DRAG_WAIT_MS = 200;      // How long to hold still before file drag starts
         public const int DRAG_CANCEL_DISTANCE = 100; // Pixels to move to cancel the wait
-        public const float DRAG_SCALE_FACTOR = 0.2f;
+        public const float DRAG_SCALE_FACTOR = 0.20f;
         public const float FILE_DRAG_OFFSET = 8;
         // Physics Constants 
-        public const float FRICTION = 0.87f;
-        public const float BOUNCE_FACTOR = 0.85f;
+        public const float FRICTION = 0.99f;
+        public const float BOUNCE_FACTOR = 1.45f;
         public const float MIN_VELOCITY = 0.85f;
+        public const float MAX_VELOCITY = 120f;
         public const int SMOOTHING_RANGE_MS = 14;
 
         public const int WINDOW_REFRESH_INTERVAL = 8; // ~120FPS animation calculation
@@ -31,7 +32,7 @@
         public const int DRAG_WINDOW_MAXIMUM_WIDTH = 300;
         public const int DRAG_WINDOW_MAXIMUM_HEIGHT = 300;
 
-        public const int TEXTBOX_FONT_SIZE = 12;
+        public const int FONT_SIZE_NORMAL = 12;
 
         public const int SHELF_IMAGE_HEIGHT = 80;
 

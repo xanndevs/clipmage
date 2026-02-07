@@ -69,5 +69,23 @@ namespace Clipmage.Properties {
                 return ((System.Drawing.Icon)(obj));
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Clipmage.
+        /// </summary>
+        internal static string AppName {
+            get {
+                return ResourceManager.GetString("AppName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to https://api.github.com/repos/xanndevs/clipmage/releases/latest.
+        /// </summary>
+        internal static string ReleasesURL {
+            get {
+                return ResourceManager.GetString("ReleasesURL", resourceCulture);
+            }
+        }
     }
 }

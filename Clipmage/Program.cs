@@ -17,6 +17,8 @@ namespace Clipmage
 
             WindowController.DisplayTextWindow("Clipmage is running in the background...\nPress Ctrl+Shift+S to capture a screenshot.");
 
+            Updater.Instance.CheckForUpdates();
+
             // Create the invisible listener
             using (ClipboardWatcher watcher = new ClipboardWatcher())
             {
