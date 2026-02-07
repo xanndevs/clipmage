@@ -61,7 +61,6 @@ namespace Clipmage
             SetupReleaseLabel();
             SetupInstallPrompt();
 
-            SetupCancelButton();
             SetupUpdateButton();
             SetupCancelButton();
 
@@ -424,25 +423,7 @@ namespace Clipmage
             }
         }
 
-        private void SetupCancelButton()
-        {
-            _CancelButton = new Button();
 
-            _CancelButton.Text = "Cancel";
-
-            _CancelButton.Location = new Point(this.ClientSize.Width - PADDING_NORMAL - _CancelButton.Width, this.ClientSize.Height - PADDING_NORMAL - _CancelButton.Height);
-
-
-
-            this.Controls.Add(_CancelButton);
-
-            _CancelButton.Click += (s, e) =>
-            {
-                this.Hide();
-            };
-
-
-        }
 
         // Fix: Changed to async Task to avoid UI freezing
         public async Task CheckForUpdates()
@@ -499,7 +480,7 @@ namespace Clipmage
             {
                 DownloadUrl = downloadUrl,
                 ReleaseUrl = doc.RootElement.GetProperty("html_url").GetString() ?? "",
-                Version = new Version(2,3,5)
+                Version = version
             };
 
             return releaseInfo;
