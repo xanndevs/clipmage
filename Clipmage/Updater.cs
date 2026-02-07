@@ -24,14 +24,20 @@ namespace Clipmage
     public class Updater : Form
     {
         private static Updater? _instance;
-        private static readonly Version currentVersion = typeof(Updater).Assembly.GetName().Version ?? new Version(0, 0, 0, 0);
+        public static readonly Version currentVersion = typeof(Updater).Assembly.GetName().Version ?? new Version(0, 0, 0, 0);
         private static ReleaseInfo releaseInfo;
         private LinkLabel _releaseLabel;
         private Label _newVersionLabel;
         private Label _installPrompt;
 
-        private Button _CancelButton;
-        private Button _UpdateButton;
+        private ProgressBar _progressBar;
+        private Panel _progressBarPanel;
+
+        private RoundedButton _cancelButton;
+        private CancellationTokenSource _cts;
+        private int _cancelWidth;
+        private Button _updateButton;
+        private bool _isUpdating = false;
 
         public static Updater Instance
         {
@@ -57,7 +63,11 @@ namespace Clipmage
 
             SetupCancelButton();
             SetupUpdateButton();
+            SetupCancelButton();
+
+            SetupProgressBar();
         }
+
 
 
         private void InitializeComponent()
@@ -66,12 +76,13 @@ namespace Clipmage
             this.ShowInTaskbar = true;
             this.Icon = Properties.Resources.AppIcon;
             this.ShowIcon = true;
-            this.Size = new Size(500, 200);
+            this.Size = new Size(430, 175);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.BackColor = Color.FromArgb(20, 20, 20);
             this.ForeColor = Color.White;
             this.TopMost = true;
             this.FormBorderStyle = FormBorderStyle.FixedToolWindow;
+            this.Padding = Padding.Empty;
 
             this.Controls.Add(_releaseLabel);
 
@@ -94,7 +105,7 @@ namespace Clipmage
             _newVersionLabel.Text = "New version of "+ Properties.Resources.AppName +" is available!";
             _newVersionLabel.AutoSize = true;
             _newVersionLabel.Location = new Point(PADDING_NORMAL, PADDING_NORMAL);
-            _newVersionLabel.Font = new Font("Segoe UI", FONT_SIZE_NORMAL, FontStyle.Bold);
+            _newVersionLabel.Font = new Font("Segoe UI", FONT_SIZE_SMALL, FontStyle.Bold);
             this.Controls.Add(_newVersionLabel);
         }
 
@@ -104,8 +115,8 @@ namespace Clipmage
 
             _releaseLabel.Text = "Click here to view the release notes.";
             _releaseLabel.AutoSize = true;
-            _releaseLabel.Location = new Point(PADDING_NORMAL, ((PADDING_NORMAL + FONT_SIZE_NORMAL) * 1 ) + PADDING_NORMAL);
-            _releaseLabel.Font = new Font("Segoe UI", FONT_SIZE_NORMAL, FontStyle.Regular);
+            _releaseLabel.Location = new Point(PADDING_NORMAL, ((PADDING_NORMAL + FONT_SIZE_SMALL) * 1 ) + PADDING_NORMAL);
+            _releaseLabel.Font = new Font("Segoe UI", FONT_SIZE_SMALL, FontStyle.Regular);
             _releaseLabel.LinkColor = Color.FromArgb(100, 180, 255);
             _releaseLabel.ActiveLinkColor = Color.FromArgb(130, 194, 255);
             _releaseLabel.VisitedLinkColor = Color.FromArgb(100, 180, 255);
@@ -133,51 +144,172 @@ namespace Clipmage
 
             _installPrompt.Text = "Do you want to update to the newest version?";
             _installPrompt.AutoSize = true;
-            _installPrompt.Location = new Point(PADDING_NORMAL, ((PADDING_NORMAL + FONT_SIZE_NORMAL) * 2) + PADDING_NORMAL);
-            _installPrompt.Font = new Font("Segoe UI", FONT_SIZE_NORMAL, FontStyle.Regular);
+            _installPrompt.Location = new Point(PADDING_NORMAL, ((PADDING_NORMAL + FONT_SIZE_SMALL) * 2) + PADDING_NORMAL);
+            _installPrompt.Font = new Font("Segoe UI", FONT_SIZE_SMALL, FontStyle.Regular);
             this.Controls.Add(_installPrompt);
         }
 
+        private void SetupProgressBar()
+        {   
+            _progressBarPanel = new Panel();
+            _progressBarPanel.BorderStyle = BorderStyle.None;
+            _progressBarPanel.Size = new Size(
+                    this.ClientSize.Width - (PADDING_NORMAL * 2) - (PADDING_NORMAL + _updateButton.Width + PADDING_NORMAL + _cancelButton.Width),
+                    DIALOG_BUTTON_SIZE
+            );
 
+            _progressBarPanel.Location = new Point( PADDING_NORMAL, this.ClientSize.Height - _progressBarPanel.Height - PADDING_NORMAL);
+            WindowHelpers.ApplyRoundedRegion(_progressBarPanel, BUTTON_CORNER_RADIUS, 1, Color.DimGray);
+            _progressBarPanel.BackColor = Color.DimGray;
+            _progressBar = new ProgressBar();
+            
+            _progressBar.Dock = DockStyle.None;
+            _progressBar.Size = new Size(_progressBarPanel.Width - 4, _progressBarPanel.Height - 4);
+            _progressBar.Location = new Point(2, 2);
+            _progressBar.Style = ProgressBarStyle.Continuous;
+
+            _progressBarPanel.Controls.Add(_progressBar);
+            WindowHelpers.ApplyRoundedRegion(_progressBar, BUTTON_CORNER_RADIUS - 1);
+
+            this.Controls.Add( _progressBarPanel );
+
+            _progressBarPanel.Hide();
+
+        }
         private void SetupUpdateButton()
         {
-            _UpdateButton = new Button();
+            _updateButton = new RoundedButton();
 
-             _UpdateButton.Text = "Update Now";
+            _updateButton.Text = "Update Now";
+            _updateButton.Font = new Font("Segoe UI", FONT_SIZE_SMALL, FontStyle.Regular);
 
-            _UpdateButton.Location = new Point(this.ClientSize.Width - PADDING_NORMAL - _CancelButton.Width - PADDING_NORMAL - _UpdateButton.Width, this.ClientSize.Height - PADDING_NORMAL - _CancelButton.Height);
+            _updateButton.BackColor = this.BackColor;
+            _updateButton.Height = DIALOG_BUTTON_SIZE;
 
-            this.Controls.Add(_UpdateButton);
+            _updateButton.Location = new Point(this.ClientSize.Width - _updateButton.Width - PADDING_NORMAL, this.ClientSize.Height - _updateButton.Height - PADDING_NORMAL);
 
-            _UpdateButton.Click += (s, e) =>
+            this.Controls.Add(_updateButton);
+
+            _updateButton.Click += (s, e) =>
+            {
+                if (!_isUpdating)
             {
                 BeginUpdateProcess();
-                this.Hide();
+                }
+                
+                //this.Hide();
             };
 
 
         }
 
-        private static async void BeginUpdateProcess()
+
+        private void SetupCancelButton()
         {
-            // Logic to start the update process goes here
-            // For example, you could download the new version and launch the installer
-            if (!string.IsNullOrEmpty(releaseInfo.DownloadUrl))
+            _cancelButton = new RoundedButton();
+
+            _cancelButton.Text = "Close";
+            _cancelButton.Font = new Font("Segoe UI", FONT_SIZE_SMALL, FontStyle.Regular);
+
+            _cancelButton.isAutoResizing = false;
+            _cancelButton.Height = DIALOG_BUTTON_SIZE;
+            _cancelButton.BackColor = this.BackColor;
+            
+            _cancelButton.Location = new Point(_updateButton.Location.X - _cancelButton.Width - PADDING_NORMAL, this.ClientSize.Height - _cancelButton.Height - PADDING_NORMAL);
+            _cancelWidth = _cancelButton.Width;
+            this.Controls.Add(_cancelButton);
+
+            _cancelButton.Click += (s, e) =>
             {
-                string downloadedPath = await DownloadFileToTempAsync(releaseInfo.DownloadUrl);
+                if(_cts != null)
+                {
+                    _cts.Cancel();
+                    _progressBar.Value = 0;
+                    _progressBarPanel.Hide();
+                    _cancelButton.Text = "Close";
+                }
+                    
+                else this.Hide();
+            };
 
 
+
+
+        }
+
+
+        private async void BeginUpdateProcess()
+        {
+            // 1. Validation
+            if (string.IsNullOrEmpty(releaseInfo.DownloadUrl))
+            {
+                MessageBox.Show("Invalid download URL.");
+                return;
+        }
+
+            // 2. Setup UI for Download State
+            _cts = new CancellationTokenSource();
+            _progressBar.Value = 0;
+            _progressBarPanel.Show();
+            _isUpdating = true;
+            _updateButton.ForeColor = Color.Gray;
+            _progressBarPanel.Visible = true;       // Make sure it's visible
+            _cancelButton.Enabled = true;      // Ensure cancel is clickable
+            _cancelButton.Text = "Cancel";
+
+            try
+        {
+                // 3. Define Progress Handler
+                var progressHandler = new Progress<double>(percent =>
+            {
+                    // Update UI on the main thread
+                    _progressBar.Value = (int)percent;
+
+                    //_updateButton.Text = $"Downloading... {percent:0}%";
+                });
+
+                // 4. Start Download (Await it)
+                // Ensure your DownloadFileToTempAsync accepts the CancellationToken
+                string downloadedPath = await DownloadFileToTempAsync(releaseInfo.DownloadUrl, progressHandler, _cts.Token);
+
+                // 5. If we get here, download is 100% complete and successful
                 PerformUpdate(downloadedPath);
-
+            }
+            catch (OperationCanceledException)
+            {
+                // 6. Handle Cancellation (User clicked Cancel)
+                // Reset UI back to "Ready" state
+                _progressBarPanel.Visible = false;
+                _updateButton.Text = "Update Now";
+                _updateButton.ForeColor = Color.White;
+                _isUpdating = false;
+                _updateButton.Enabled = true;
+                //MessageBox.Show("Update cancelled by user.");
+            }
+            catch (Exception ex)
+            {
+                // 7. Handle Errors (Network fail, disk full, etc.)
+                _progressBarPanel.Visible = false;
+                _updateButton.Text = "Update Now";
+                _updateButton.ForeColor = Color.White;
+                _isUpdating = false;
+                _updateButton.Enabled = true;
+                MessageBox.Show($"Update failed: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                // 8. Clean up the token source
+                _cts?.Dispose();
+                _cts = null;
             }
         }
 
-        public static async Task<string> DownloadFileToTempAsync(string fileUrl)
+        public static async Task<string> DownloadFileToTempAsync(string fileUrl, IProgress<double> progress, CancellationToken token)
         {
             // 1. Create a unique temporary file path 
             // We use a GUID to ensure the name doesn't conflict with existing files
             string tempFolder = Path.GetTempPath();
-            string fileName = $"{Guid.NewGuid()}.exe"; // You can change extension if needed (e.g., .exe)
+            string fileName = $"{Guid.NewGuid()}.exe";
             string filePath = Path.Combine(tempFolder, fileName);
 
             // 2. Initialize HttpClient (Best practice: use a shared instance in real apps)
@@ -185,19 +317,46 @@ namespace Clipmage
             {
                 try
                 {
-                    // 3. Download the file bytes
-                    byte[] fileBytes = await client.GetByteArrayAsync(fileUrl);
+                    // Pass 'token' here. If cancelled while connecting, it throws immediately.
+                    using (HttpResponseMessage response = await client.GetAsync(fileUrl, HttpCompletionOption.ResponseHeadersRead, token))
+                    {
+                        response.EnsureSuccessStatusCode();
+                        long? totalBytes = response.Content.Headers.ContentLength;
 
-                    // 4. Write bytes to the temporary file
-                    await File.WriteAllBytesAsync(filePath, fileBytes);
+                        using (Stream contentStream = await response.Content.ReadAsStreamAsync())
+                        using (FileStream fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true))
+                        {
+                            byte[] buffer = new byte[8192];
+                            long totalRead = 0;
+                            int bytesRead;
 
+                            while (true)
+                            {
+                                // Check if cancellation was requested before reading
+                                token.ThrowIfCancellationRequested();
+
+                                // Pass token to ReadAsync so it stops even if waiting for data
+                                bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length, token);
+
+                                if (bytesRead == 0) break;
+
+                                await fileStream.WriteAsync(buffer, 0, bytesRead, token);
+
+                                totalRead += bytesRead;
+                                if (totalBytes.HasValue)
+                                {
+                                    progress?.Report((double)totalRead / totalBytes.Value * 100);
+                                }
+                            }
+                        }
+                    }
                     return filePath;
                 }
-                catch (Exception ex)
+                catch (OperationCanceledException)
                 {
-                    // Handle network errors or invalid URLs
-                    Console.WriteLine($"Download failed: {ex.Message}");
-                    return null;
+                    // If cancelled, delete the partial file so we don't leave junk
+                    if (File.Exists(filePath)) File.Delete(filePath);
+                    throw; // Rethrow so the caller knows it was cancelled
                 }
             }
         }

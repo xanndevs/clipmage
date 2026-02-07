@@ -6,6 +6,7 @@ using System.Windows.Forms;
 using System.Runtime.InteropServices; // Required for DllImport
 using static Clipmage.WindowHelpers;
 using static Clipmage.AppConfig;
+using System.Reflection;
 
 namespace Clipmage
 {
@@ -72,6 +73,10 @@ namespace Clipmage
 
             // Context menu to actually exit the application
             _trayMenu = new ContextMenuStrip();
+
+            ToolStripMenuItem versionNumber = new ToolStripMenuItem("Version - v" + Updater.currentVersion.ToString().Substring(0, Updater.currentVersion.ToString().Length - 2));
+            _trayMenu.Items.Add(versionNumber);
+
             ToolStripMenuItem exitItem = new ToolStripMenuItem("Exit Clipmage");
             exitItem.Click += (s, e) =>
             {
@@ -80,6 +85,9 @@ namespace Clipmage
                 Application.Exit(); // Kill the app
             };
             _trayMenu.Items.Add(exitItem);
+
+
+
             _trayIcon.ContextMenuStrip = _trayMenu;
         }
 
