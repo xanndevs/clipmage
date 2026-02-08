@@ -80,6 +80,15 @@ namespace Clipmage.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to https://github.com/xanndevs/clipmage.
+        /// </summary>
+        internal static string GithubURL {
+            get {
+                return ResourceManager.GetString("GithubURL", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to https://api.github.com/repos/xanndevs/clipmage/releases/latest.
         /// </summary>
         internal static string ReleasesURL {

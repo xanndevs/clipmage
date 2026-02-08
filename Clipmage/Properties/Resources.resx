@@ -130,4 +130,8 @@
     <value>https://api.github.com/repos/xanndevs/clipmage/releases/latest</value>
     <comment>Latest Release URL</comment>
   </data>
+  <data name="GithubURL" xml:space="preserve">
+    <value>https://github.com/xanndevs/clipmage</value>
+    <comment>Github Page of Application</comment>
+  </data>
 </root>

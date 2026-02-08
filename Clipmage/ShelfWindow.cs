@@ -75,6 +75,15 @@ namespace Clipmage
             _trayMenu = new ContextMenuStrip();
 
             ToolStripMenuItem versionNumber = new ToolStripMenuItem("Version - v" + Updater.currentVersion.ToString().Substring(0, Updater.currentVersion.ToString().Length - 2));
+            versionNumber.Click += (s, e) =>
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = Properties.Resources.GithubURL,
+                    UseShellExecute = true
+                }); 
+                    
+            };
             _trayMenu.Items.Add(versionNumber);
 
             ToolStripMenuItem exitItem = new ToolStripMenuItem("Exit Clipmage");
