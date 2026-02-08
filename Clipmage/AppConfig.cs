@@ -33,12 +33,14 @@
         public const int DRAG_WINDOW_MAXIMUM_WIDTH = 300;
         public const int DRAG_WINDOW_MAXIMUM_HEIGHT = 300;
 
+        public const int FONT_SIZE_TINY = 6;
         public const int FONT_SIZE_SMALL = 10;
         public const int FONT_SIZE_NORMAL = 12;
         public const int FONT_SIZE_LARGE = 14;
 
         public const int SHELF_IMAGE_HEIGHT = 80;
 
+        public const int PADDING_TINY = 2;
         public const int PADDING_SMALL = 4;
         public const int PADDING_NORMAL = 8;
         public const int PADDING_LARGE = 16;

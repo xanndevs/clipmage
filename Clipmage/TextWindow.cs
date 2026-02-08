@@ -17,6 +17,7 @@ namespace Clipmage
         private Button _editButton;
         private Panel _titleContainer;
         private GhostTextBox _titleText;
+        private Label _titleLength;
 
 
         private Image _snapshot;
@@ -266,24 +267,55 @@ namespace Clipmage
 
         private void SetupTitleText()
         {
+            //title text
             _titleText = new GhostTextBox();
             _titleText.Enabled = false;
             _titleText.Multiline = false;
+            _titleText.MaxLength = 100;
+            _titleText.Width = _titleContainer.Width - (PADDING_NORMAL * 2) - _titleLength.Width - PADDING_TINY;
             _titleText.Location = new Point(PADDING_NORMAL, (_titleContainer.Height / 2 - _titleText.Height / 2));
             _titleText.Dock = DockStyle.None;
             _titleText.BackColor = _titleContainer.BackColor;
             _titleText.ForeColor = Color.FromArgb(250, 250, 250);
             _titleText.BorderStyle = BorderStyle.None;
             _titleText.Font = new System.Drawing.Font("Segoe UI", FONT_SIZE_NORMAL);
-            _titleText.Text = "Clipboard Text";
+            _titleText.Text = "Clipboard Text çok daha uzun başlık deneme";
            
             ApplyRoundedRegion(_titleContainer, WINDOW_CORNER_RADIUS);
 
+            _titleLength = new Label();
+            _titleLength.AutoSize = true;
+            _titleLength.ForeColor = Color.FromArgb(150, 150, 150);
+            _titleLength.Font = new Font("Segoe UI", FONT_SIZE_TINY);
+            _titleLength.BackColor = Color.Transparent;
+            _titleLength.Visible = false;
+            _titleLength.Text = $"{_titleText.MaxLength - _titleText.Text.Length}";
+
+            UpdateTitleLengthPosition();
+
+            //events
             _titleContainer.MouseDown += OnMouseDown;
             _titleContainer.MouseMove += OnMouseMove;
             _titleContainer.MouseUp += OnMouseUp;
+            _titleText.TextChanged += (s, e) => {
+                _titleLength.Text = $"{_titleText.MaxLength - _titleText.Text.Length}";
+                UpdateTitleLengthPosition();
+            };
 
             _titleContainer.Controls.Add(_titleText);
+            _titleContainer.Controls.Add(_titleLength);
+            _titleLength.BringToFront();
+        }
+
+        private void UpdateTitleLengthPosition()
+        {
+            if (_titleLength != null && _titleContainer != null)
+            {
+                _titleLength.Location = new Point(
+                    _titleContainer.Width - _titleLength.Width - PADDING_TINY,
+                    _titleContainer.Height - _titleLength.Height - PADDING_TINY
+                );
+            }
         }
 
         private void ToggleEdit()
@@ -292,7 +324,9 @@ namespace Clipmage
             {
                 // Save/Stop Editing
                 isEditing = false;
-                _textBox.ReadOnly = true;
+                _titleLength.Visible = false;
+                _titleText.Enabled = false;
+                _textBox.Enabled = false;
                 _editButton.Text = "\ue70f";
                 //_editButton.BackColor = Color.FromArgb(255, 39, 41, 42);
                 _editButton.ForeColor= Color.LightGray;
@@ -305,11 +339,19 @@ namespace Clipmage
             {
                 // Start Editing
 
-                //_editButton.BackColor = Color.FromArgb(255, 76, 162, 230);
+                //_editButton.BackColor = Color.FromArgb(255, 76, 162, 230);.ForeColor = Color.FromArgb(255, 76, 162, 230);
+                _editButton.FlatAppearance.BorderColor = Color.FromArgb(255, 48, 117, 171);
+                isEditing = true;
+                _titleLength.Visible = true;
+                UpdateTitleLengthPosition();
+                _titleText.Enabled = true;
+                _textBox.Enabled = true;
+                _textBox.Focus();
                 _editButton.ForeColor = Color.FromArgb(255, 76, 162, 230);
                 _editButton.FlatAppearance.BorderColor = Color.FromArgb(255, 48, 117, 171);
                 isEditing = true;
-                _textBox.ReadOnly = false;
+                _titleText.Enabled = true;
+                _textBox.Enabled = true;
                 _textBox.Focus();
                 _editButton.Text = "\ue74e"; // Save icon
             }
