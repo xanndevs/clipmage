@@ -15,6 +15,8 @@ namespace Clipmage
         private ModernScrollBar _scrollBar;
         private bool isEditing = false;
         private Button _editButton;
+        private Panel _titleContainer;
+        private GhostTextBox _titleText;
 
 
         private Image _snapshot;
@@ -53,6 +55,8 @@ namespace Clipmage
             // Initialize controls
             // Order matters: Setup ScrollBar first so TextBox layout logic can reference it if needed
             SetupEditButton();
+            SetupTitleContainer();
+            SetupTitleText();
             SetupContainer();
             SetupScrollBar(); // Attach scrollbar to container
             SetupTextBox(text); // Create text box and put in container
@@ -127,7 +131,7 @@ namespace Clipmage
         {
             _textBox = new GhostTextBox();
             _textBox.Multiline = true;
-            _textBox.ReadOnly = true;
+            _textBox.Enabled = false;
             _textBox.Dock = DockStyle.None;
             _textBox.BackColor = _textContainer.BackColor;
             _textBox.ForeColor = Color.FromArgb(250, 250, 250);
@@ -246,6 +250,40 @@ namespace Clipmage
 
             ApplyRoundedRegion(_editButton, BUTTON_CORNER_RADIUS, 1, Color.Empty);
             this.Controls.Add(_editButton);
+        }
+
+        private void SetupTitleContainer()
+        {
+            _titleContainer = new Panel();
+            _titleContainer.BackColor = Color.FromArgb(43, 43, 43);
+            _titleContainer.Location = new Point(PADDING_NORMAL, PADDING_NORMAL);
+            _titleContainer.Width = this.ClientSize.Width - PADDING_NORMAL - PADDING_NORMAL - (INTERACTION_BUTTON_SIZE + PADDING_NORMAL) * 2;
+            _titleContainer.Height = INTERACTION_BUTTON_SIZE;
+            _titleContainer.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            ApplyRoundedRegion(_titleContainer, WINDOW_CORNER_RADIUS, 1, _titleContainer.BackColor);
+            this.Controls.Add(_titleContainer);
+        }
+
+        private void SetupTitleText()
+        {
+            _titleText = new GhostTextBox();
+            _titleText.Enabled = false;
+            _titleText.Multiline = false;
+            _titleText.Location = new Point(PADDING_NORMAL, (_titleContainer.Height / 2 - _titleText.Height / 2));
+            _titleText.Dock = DockStyle.None;
+            _titleText.BackColor = _titleContainer.BackColor;
+            _titleText.ForeColor = Color.FromArgb(250, 250, 250);
+            _titleText.BorderStyle = BorderStyle.None;
+            _titleText.Font = new System.Drawing.Font("Segoe UI", FONT_SIZE_NORMAL);
+            _titleText.Text = "Clipboard Text";
+           
+            ApplyRoundedRegion(_titleContainer, WINDOW_CORNER_RADIUS);
+
+            _titleContainer.MouseDown += OnMouseDown;
+            _titleContainer.MouseMove += OnMouseMove;
+            _titleContainer.MouseUp += OnMouseUp;
+
+            _titleContainer.Controls.Add(_titleText);
         }
 
         private void ToggleEdit()
