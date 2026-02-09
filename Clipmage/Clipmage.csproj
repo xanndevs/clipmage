@@ -30,7 +30,7 @@
 	  </PublishedSingleFileName>
 
 
-	  <Version>1.2.1</Version>
+	  <Version>1.2.2</Version>
     <Product>$(AssemblyName)_v$(Version).exe</Product>
   </PropertyGroup>
     
