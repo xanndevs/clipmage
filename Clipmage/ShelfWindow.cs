@@ -487,6 +487,16 @@ namespace Clipmage
                     CreateShelvedTextWindow(text);
                 }
             }
+
+        }
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+
+            // The "Toggle" Hack:
+            // This forces the Window Manager to re-evaluate the Z-order.
+            this.TopMost = false;
+            this.TopMost = true;
         }
     }
 
@@ -570,6 +580,8 @@ namespace Clipmage
             path.CloseFigure();
             return path;
         }
+
+        
     }
 
     /// <summary>
@@ -728,5 +740,6 @@ namespace Clipmage
                 }
             }
         }
+        
     }
 }

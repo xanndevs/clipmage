@@ -79,7 +79,7 @@ namespace Clipmage
             this.StartPosition = FormStartPosition.CenterScreen;
             this.BackColor = Color.FromArgb(20, 20, 20);
             this.ForeColor = Color.White;
-            this.TopMost = true;
+            this.TopMost = false;
             this.FormBorderStyle = FormBorderStyle.FixedToolWindow;
             this.Padding = Padding.Empty;
 

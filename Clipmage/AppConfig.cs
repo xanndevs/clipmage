@@ -4,9 +4,9 @@
     {
 
         // Drag & Drop Behavior
-        public const int DRAG_WAIT_MS = 200;      // How long to hold still before file drag starts
-        public const int DRAG_CANCEL_DISTANCE = 100; // Pixels to move to cancel the wait
-        public const float DRAG_SCALE_FACTOR = 0.20f;
+        public const int DRAG_WAIT_MS = 250;      // How long to hold still before file drag starts
+        public const int DRAG_CANCEL_DISTANCE = 90; // Pixels to move to cancel the wait
+        public const float DRAG_SCALE_FACTOR = 0.16f;
         public const float FILE_DRAG_OFFSET = 8;
         // Physics Constants 
         public const float FRICTION = 0.87f;

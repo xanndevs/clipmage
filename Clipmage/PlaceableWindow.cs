@@ -606,5 +606,14 @@ namespace Clipmage
             if (_fadeTimer != null) { _fadeTimer.Stop(); _fadeTimer.Dispose(); }
             base.OnFormClosed(e);
         }
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+
+            // The "Toggle" Hack:
+            // This forces the Window Manager to re-evaluate the Z-order.
+            this.TopMost = false;
+            this.TopMost = true;
+        }
     }
 }
