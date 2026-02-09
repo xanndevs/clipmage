@@ -231,6 +231,12 @@ namespace Clipmage
         {
             if (e.Button == MouseButtons.Left)
             {
+                // Initialize _baseSize if it's never been set
+                if (_baseSize.Width == 0 || _baseSize.Height == 0) _baseSize = this.Size;
+
+                // Sync _currentScale to the ACTUAL window size right now.
+                _currentScale = (float)this.Width / _baseSize.Width;
+
                 _isDragging = true;
                 _physicsTimer.Stop();
                 _lifeTimer.Stop();
@@ -250,6 +256,8 @@ namespace Clipmage
                 _dragHistory.Enqueue((DateTime.Now, Cursor.Position));
 
                 Point mousePos = Cursor.Position;
+
+                // The anchor ratio based on the current visual bounds
                 float relX = (float)(mousePos.X - this.Left) / this.Width;
                 float relY = (float)(mousePos.Y - this.Top) / this.Height;
                 _anchorRatio = new PointF(relX, relY);
@@ -390,7 +398,9 @@ namespace Clipmage
 
             if (WindowController.Shelf != null && WindowController.Shelf.Visible && !WindowController.Shelf.IsDisposed)
             {
-                if (this.Bounds.IntersectsWith(WindowController.Shelf.Bounds))
+                // Now only checks if mouse is actually inside of the shelf bounds.
+                // Previously it checked if the window bounds intersected, which made taking a window out of the shelf a little bit harder.
+                if (new Rectangle(MousePosition.X,MousePosition.Y,1,1).IntersectsWith(WindowController.Shelf.Bounds))
                 {
                     WindowController.Shelf.AddSource(this.id, this.GetSnapshot());
                     this.Hide();
@@ -472,6 +482,16 @@ namespace Clipmage
                 }
             }
 
+            // 1. Calculate the OLD Lift (Before we update the scale)
+            // We need this to find the "True" Top position of the window, stripping away the offset.
+            float denom = (1.0f - DRAG_SCALE_FACTOR);
+            float t_prev = 0;
+            if (Math.Abs(denom) > 0.001f) t_prev = (1.0f - _currentScale) / denom;
+            t_prev = Math.Min(1.0f, Math.Max(0.0f, t_prev));
+
+            int lift_prev = (int)(((_baseSize.Height * (1 - _anchorRatio.Y) * DRAG_SCALE_FACTOR) + FILE_DRAG_OFFSET) * t_prev);
+
+            // 2. Update Scale
             float lerpSpeed = 0.25f;
             _currentScale += (_targetScale - _currentScale) * lerpSpeed;
 
@@ -486,22 +506,50 @@ namespace Clipmage
                 }
             }
 
+            // 3. Calculate NEW Dimensions
             int newW = (int)(_baseSize.Width * _currentScale);
             int newH = (int)(_baseSize.Height * _currentScale);
             int newX, newY;
 
             if (_isDragging)
             {
+                // Dragging Logic
                 newX = Cursor.Position.X - (int)(newW * _anchorRatio.X);
                 newY = Cursor.Position.Y - (int)(newH * _anchorRatio.Y);
-                float t = (1.0f - _currentScale) / (1.0f - DRAG_SCALE_FACTOR);
-                newY -= (int)(((_baseSize.Height * (1 - _anchorRatio.Y) * DRAG_SCALE_FACTOR) + FILE_DRAG_OFFSET) * Math.Min(1.0f, Math.Max(0.0f, t)));
+
+                // Division by 0 fix and clamp t between 0 and 1 to avoid weird jumps when scale goes beyond expected range.
+                float t = 0;
+                if (Math.Abs(denom) > 0.001f) t = (1.0f - _currentScale) / denom;
+                t = Math.Min(1.0f, Math.Max(0.0f, t));
+
+                newY -= (int)(((_baseSize.Height * (1 - _anchorRatio.Y) * DRAG_SCALE_FACTOR) + FILE_DRAG_OFFSET) * t);
             }
             else
             {
-                Point currentCenter = new Point(this.Left + this.Width / 2, this.Top + this.Height / 2);
-                newX = currentCenter.X - newW / 2;
-                newY = currentCenter.Y - newH / 2;
+                // Releasing Logic
+
+                // A. Calculate NEW Lift for the current frame (it will be smaller than lift_prev)
+                float t_new = 0;
+                if (Math.Abs(denom) > 0.001f) t_new = (1.0f - _currentScale) / denom;
+                t_new = Math.Min(1.0f, Math.Max(0.0f, t_new));
+
+                int lift_new = (int)(((_baseSize.Height * (1 - _anchorRatio.Y) * DRAG_SCALE_FACTOR) + FILE_DRAG_OFFSET) * t_new);
+
+                // B. Recover the "True" Top by removing the old lift
+                int trueTop = this.Top + lift_prev;
+
+                // C. Calculate the Anchor based on the TRUE position
+                Point trueAnchor = new Point(
+                    this.Left + (int)(this.Width * _anchorRatio.X),
+                    trueTop + (int)(this.Height * _anchorRatio.Y)
+                );
+
+                // D. Calculate standard resized position
+                newX = trueAnchor.X - (int)(newW * _anchorRatio.X);
+                newY = trueAnchor.Y - (int)(newH * _anchorRatio.Y);
+
+                // E. Re-apply the NEW (smaller) lift
+                newY -= lift_new;
             }
 
             this.Bounds = new Rectangle(newX, newY, newW, newH);
