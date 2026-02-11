@@ -273,9 +273,9 @@ namespace Clipmage
             _titleText.Enabled = false;
             _titleText.Multiline = false;
             _titleText.MaxLength = 100;
-            _titleText.Text = "Clipboard Text";
+            _titleText.PlaceholderText = "Clipmage Text File";
             _titleText.Font = new System.Drawing.Font("Segoe UI", FONT_SIZE_SMALL);
-            Size titleSize = TextRenderer.MeasureText(_titleText.Text, _titleText.Font);
+            Size titleSize = TextRenderer.MeasureText(" ", _titleText.Font);
             _titleText.Width = _titleContainer.ClientSize.Width - (PADDING_NORMAL * 2) ;
             _titleText.Location = new Point(PADDING_NORMAL, (_titleContainer.ClientSize.Height - titleSize.Height) / 2);
             //_titleText.Dock = DockStyle.Left | DockStyle.Right;
@@ -324,6 +324,7 @@ namespace Clipmage
                 _titleContainer.ClientSize.Width - _titleLength.Width,
                 _titleContainer.ClientSize.Height - _titleLength.Height
             );
+            ApplyCroppedRegion(_titleLength, new Point(1,1), new Point(_titleLength.Width - 2, _titleLength.Height - 2));
         }
 
 
@@ -444,6 +445,10 @@ namespace Clipmage
             // Create a safe filename. You could also use a snippet of the text as the name.
             // e.g., "Note_20231025.txt"
             string fileName = $"Clipmage_Text_{DateTime.Now.Ticks}.txt";
+            if(this._titleText != null && !string.IsNullOrEmpty(this._titleText.Text))
+            {
+                fileName = $"{this._titleText.Text}.txt";
+            }
             string fullPath = System.IO.Path.Combine(tempPath, fileName);
 
             // Write the text to the file
