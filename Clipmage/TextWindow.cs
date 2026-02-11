@@ -15,6 +15,9 @@ namespace Clipmage
         private ModernScrollBar _scrollBar;
         private bool isEditing = false;
         private Button _editButton;
+        private Panel _titleContainer;
+        private GhostTextBox _titleText;
+        private Label _titleLength;
 
 
         private Image _snapshot;
@@ -53,6 +56,8 @@ namespace Clipmage
             // Initialize controls
             // Order matters: Setup ScrollBar first so TextBox layout logic can reference it if needed
             SetupEditButton();
+            SetupTitleContainer();
+            SetupTitleText();
             SetupContainer();
             SetupScrollBar(); // Attach scrollbar to container
             SetupTextBox(text); // Create text box and put in container
@@ -127,7 +132,7 @@ namespace Clipmage
         {
             _textBox = new GhostTextBox();
             _textBox.Multiline = true;
-            _textBox.ReadOnly = true;
+            _textBox.Enabled = false;
             _textBox.Dock = DockStyle.None;
             _textBox.BackColor = _textContainer.BackColor;
             _textBox.ForeColor = Color.FromArgb(250, 250, 250);
@@ -137,11 +142,11 @@ namespace Clipmage
             SetTabWidth(_textBox, TAB_WIDTH);
 
 
-            _textBox.Font = new System.Drawing.Font("Segoe UI", FONT_SIZE_NORMAL);
+            _textBox.Font = new System.Drawing.Font("Segoe UI", FONT_SIZE_SMALL);
 
             // Initial Positioning
-            _textBox.Location = new Point(0,0);
-            _textBox.Width = _textContainer.Width;
+            _textBox.Location = new Point(PADDING_TINY,PADDING_TINY);
+            _textBox.Width = _textContainer.Width - (PADDING_TINY * 2);
             _textBox.Text = text;
 
             // Calculate height AFTER setting width and text
@@ -248,13 +253,90 @@ namespace Clipmage
             this.Controls.Add(_editButton);
         }
 
+        private void SetupTitleContainer()
+        {
+            _titleContainer = new Panel();
+            _titleContainer.BackColor = Color.FromArgb(43, 43, 43);
+            _titleContainer.Location = new Point(PADDING_NORMAL, PADDING_NORMAL);
+            _titleContainer.Width = this.ClientSize.Width - PADDING_NORMAL - PADDING_NORMAL - (INTERACTION_BUTTON_SIZE + PADDING_NORMAL) * 2;
+            _titleContainer.Height = INTERACTION_BUTTON_SIZE;
+            _titleContainer.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            ApplyRoundedRegion(_titleContainer, WINDOW_CORNER_RADIUS, 1, _titleContainer.BackColor);
+            this.Controls.Add(_titleContainer);
+        }
+
+        private void SetupTitleText()
+        {
+            
+            //title text
+            _titleText = new GhostTextBox();
+            _titleText.Enabled = false;
+            _titleText.Multiline = false;
+            _titleText.MaxLength = 100;
+            _titleText.PlaceholderText = "Clipmage Text File";
+            _titleText.Font = new System.Drawing.Font("Segoe UI", FONT_SIZE_SMALL);
+            Size titleSize = TextRenderer.MeasureText(" ", _titleText.Font);
+            _titleText.Width = _titleContainer.ClientSize.Width - (PADDING_NORMAL * 2) ;
+            _titleText.Location = new Point(PADDING_NORMAL, (_titleContainer.ClientSize.Height - titleSize.Height) / 2);
+            //_titleText.Dock = DockStyle.Left | DockStyle.Right;
+            _titleText.BackColor = _titleContainer.BackColor;
+            _titleText.ForeColor = Color.FromArgb(250, 250, 250);
+            _titleText.BorderStyle = BorderStyle.None;
+           
+            
+
+            _titleLength = new Label();
+            _titleLength.AutoSize = true;
+            _titleLength.ForeColor = Color.FromArgb(150, 150, 150);
+            _titleLength.Font = new Font("Segoe UI", FONT_SIZE_TINY);
+            _titleLength.BackColor = Color.Empty;
+            _titleLength.Visible = false;
+            
+
+           
+
+            CalculateRemainingSize();
+
+
+
+            //events
+            _titleContainer.MouseDown += OnMouseDown;
+            _titleContainer.MouseMove += OnMouseMove;
+            _titleContainer.MouseUp += OnMouseUp;
+            _titleText.TextChanged += (s, e) => {
+
+                CalculateRemainingSize();
+
+            };
+
+            _titleContainer.Controls.Add(_titleText);
+            _titleContainer.Controls.Add(_titleLength);
+            _titleLength.BringToFront();
+        }
+
+     
+
+        private void CalculateRemainingSize()
+        {
+            _titleLength.Text = $"{_titleText.MaxLength - _titleText.Text.Length}";
+            _titleLength.Size = TextRenderer.MeasureText(_titleLength.Text, _titleLength.Font);
+            _titleLength.Location = new Point(
+                _titleContainer.ClientSize.Width - _titleLength.Width,
+                _titleContainer.ClientSize.Height - _titleLength.Height
+            );
+            ApplyCroppedRegion(_titleLength, new Point(1,1), new Point(_titleLength.Width - 2, _titleLength.Height - 2));
+        }
+
+
         private void ToggleEdit()
         {
             if (isEditing)
             {
                 // Save/Stop Editing
                 isEditing = false;
-                _textBox.ReadOnly = true;
+                _titleLength.Visible = false;
+                _titleText.Enabled = false;
+                _textBox.Enabled = false;
                 _editButton.Text = "\ue70f";
                 //_editButton.BackColor = Color.FromArgb(255, 39, 41, 42);
                 _editButton.ForeColor= Color.LightGray;
@@ -267,11 +349,18 @@ namespace Clipmage
             {
                 // Start Editing
 
-                //_editButton.BackColor = Color.FromArgb(255, 76, 162, 230);
+                //_editButton.BackColor = Color.FromArgb(255, 76, 162, 230);.ForeColor = Color.FromArgb(255, 76, 162, 230);
+                _editButton.FlatAppearance.BorderColor = Color.FromArgb(255, 48, 117, 171);
+                isEditing = true;
+                _titleLength.Visible = true;
+                _titleText.Enabled = true;
+                _textBox.Enabled = true;
+                _textBox.Focus();
                 _editButton.ForeColor = Color.FromArgb(255, 76, 162, 230);
                 _editButton.FlatAppearance.BorderColor = Color.FromArgb(255, 48, 117, 171);
                 isEditing = true;
-                _textBox.ReadOnly = false;
+                _titleText.Enabled = true;
+                _textBox.Enabled = true;
                 _textBox.Focus();
                 _editButton.Text = "\ue74e"; // Save icon
             }
@@ -356,6 +445,10 @@ namespace Clipmage
             // Create a safe filename. You could also use a snippet of the text as the name.
             // e.g., "Note_20231025.txt"
             string fileName = $"Clipmage_Text_{DateTime.Now.Ticks}.txt";
+            if(this._titleText != null && !string.IsNullOrEmpty(this._titleText.Text))
+            {
+                fileName = $"{this._titleText.Text}.txt";
+            }
             string fullPath = System.IO.Path.Combine(tempPath, fileName);
 
             // Write the text to the file

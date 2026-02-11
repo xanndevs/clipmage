@@ -148,5 +148,35 @@ namespace Clipmage
             }
             return new Region(path);
         }
+
+        public static void ApplyCroppedRegion(Control control, Point vector1, Point vector2)
+        {
+            if (control == null || control.Width <= 0 || control.Height <= 0) return;
+
+            // 1. Remove existing handler
+            if (_paintHandlers.ContainsKey(control))
+            {
+                control.Paint -= _paintHandlers[control];
+                _paintHandlers.Remove(control);
+            }
+
+            // 2. Apply Region (Clipping)
+            Point size = new Point (vector2.X - vector1.X, vector2.Y - vector1.Y);
+            if (size.X < 0 || size.Y < 0) return;
+                   
+            Rectangle bounds = new Rectangle(vector1.X, vector1.Y, size.X, size.Y);
+            control.Region = new Region(bounds);
+
+            PaintEventHandler handler = (s, e) =>
+            {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                e.Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;    
+            };
+
+            control.Paint += handler;
+            _paintHandlers[control] = handler;
+            control.Invalidate();
+        }
     }
 }
