@@ -37,6 +37,8 @@
         public const int FONT_SIZE_SMALL = 10;
         public const int FONT_SIZE_NORMAL = 12;
         public const int FONT_SIZE_LARGE = 14;
+        public const int FONT_SIZE_XLARGE = 16;
+        public const int FONT_SIZE_XXLARGE = 18;
 
         public const int SHELF_IMAGE_HEIGHT = 80;
 

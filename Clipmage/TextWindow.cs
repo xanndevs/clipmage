@@ -19,7 +19,6 @@ namespace Clipmage
         private GhostTextBox _titleText;
         private Label _titleLength;
 
-
         private Image _snapshot;
 
 
@@ -43,7 +42,6 @@ namespace Clipmage
             public int Right;
             public int Bottom;
         }
-
 
 
         public TextWindow(string text, int durationSeconds) : base(durationSeconds)
@@ -389,6 +387,9 @@ namespace Clipmage
                     var h = _textContainer.Handle;
                 }
 
+                Font prev = _textBox.Font;
+
+                _textBox.Font = new Font(prev.FontFamily, FONT_SIZE_XLARGE, FontStyle.Regular); // Reset any style changes to ensure consistent measurement
                 // Ensure layout logic runs
                 _textContainer.PerformLayout();
 
@@ -396,6 +397,8 @@ namespace Clipmage
                 Bitmap bmp = new Bitmap(_textContainer.Width, _textContainer.Height);
                 _textContainer.DrawToBitmap(bmp, new Rectangle(0, 0, _textContainer.Width, _textContainer.Height));
                 _snapshot = bmp;
+
+                _textBox.Font = prev; // Restore original font in case it was changed for measurement
             }
             return _snapshot;
         }

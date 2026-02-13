@@ -2,11 +2,12 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
-using System.Windows.Forms;
-using System.Runtime.InteropServices; // Required for DllImport
-using static Clipmage.WindowHelpers;
-using static Clipmage.AppConfig;
+using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices; // Required for DllImport
+using System.Windows.Forms;
+using static Clipmage.AppConfig;
+using static Clipmage.WindowHelpers;
 
 namespace Clipmage
 {
@@ -117,7 +118,7 @@ namespace Clipmage
             this.ShowInTaskbar = false;
             this.Icon = Properties.Resources.AppIcon;
             this.ShowIcon = true;
-            this.Size = new Size(290, 400);
+            this.Size = new Size(367, (SHELF_IMAGE_HEIGHT * 2) + 75);
             this.StartPosition = FormStartPosition.Manual;
             this.Location = new Point(Screen.PrimaryScreen.WorkingArea.Right - this.Width, Screen.PrimaryScreen.WorkingArea.Bottom - this.Height);
             this.BackColor = Color.FromArgb(20, 20, 20);
@@ -127,7 +128,7 @@ namespace Clipmage
             this.FormBorderStyle = FormBorderStyle.SizableToolWindow;
 
             // Set minimum size based on image height config to prevent weird layout issues
-            this.MinimumSize = new Size(SHELF_IMAGE_HEIGHT + 60, SHELF_IMAGE_HEIGHT + 60);
+            this.MinimumSize = new Size(SHELF_IMAGE_HEIGHT + 60, SHELF_IMAGE_HEIGHT + 62);
 
             // 1. ViewPort: The visible window area (clips content)
             _viewPort = new Panel();
@@ -421,6 +422,34 @@ namespace Clipmage
             }
         }
 
+        public void CreateShelvedPathWindow(string path)
+        {
+            // 1. Create the window as normal (this adds it to activeWindows)
+            Guid id = WindowController.DisplayFolderWindow(path);
+
+            if (id == Guid.Empty) return;
+
+            // 2. Retrieve the specific window instance
+            // (We cast to TextWindow to access specific methods if needed, 
+            // though GetSnapshot is likely on the base class)
+            var window = WindowController.GetWindowById(id);
+
+            if (window != null)
+            {
+                // 3. Force a snapshot BEFORE hiding it
+                // This ensures the shelf gets a real image, not a blank box.
+                Image snap = window.GetSnapshot();
+
+                // 4. Add to Shelf immediately
+                AddSource(id, snap);
+
+                // 5. Hide it immediately
+                // Doing this in the same execution block often prevents the 
+                // window from even flickering on screen.
+                window.Hide();
+            }
+        }
+
         private void Shelf_DragEnter(object sender, DragEventArgs e)
         {
             if (e.Data.GetDataPresent("ClipmageID") ||
@@ -443,6 +472,34 @@ namespace Clipmage
 
         private void Shelf_DragDrop(object sender, DragEventArgs e)
         {
+            //// --- DEBUG INSPECTOR START ---
+            //// This builds a list of every data format present in the drag payload
+            //string debugInfo = "Formats Available:\n";
+            //foreach (string format in e.Data.GetFormats())
+            //{
+            //    debugInfo += $"• {format}\n";
+
+            //    // Peek at the data for common formats to see what's inside
+            //    try
+            //    {
+            //        var data = e.Data.GetData(format);
+            //        if (data is string[] files)
+            //            debugInfo += $"   -> Files: {string.Join(", ", files)}\n";
+            //        else if (data is string str)
+            //            debugInfo += $"   -> String: \"{str}\"\n";
+            //        else if (data != null)
+            //            debugInfo += $"   -> Type: {data.GetType().Name}\n";
+            //    }
+            //    catch { debugInfo += "   -> (Error reading data)\n"; }
+            //}
+
+            //MessageBox.Show(debugInfo, "Drag Debug Inspector");
+            //// --- DEBUG INSPECTOR END ---
+
+
+            // ---------------------------------------------------------
+            // 1. PRIORITY: Internal App Drag (Moving items on shelf)
+            // ---------------------------------------------------------
             if (e.Data.GetDataPresent("ClipmageID"))
             {
                 Guid id = (Guid)e.Data.GetData("ClipmageID");
@@ -451,43 +508,154 @@ namespace Clipmage
                     var img = (Image)e.Data.GetData(DataFormats.Bitmap);
                     AddSource(id, img);
                 }
+                return; // Exit immediately
             }
+
+            // ---------------------------------------------------------
+            // 2. PRIORITY: File System Objects (Files AND Folders)
+            // ---------------------------------------------------------
+            else if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                var files = (string[])e.Data.GetData(DataFormats.FileDrop);
+                if (files != null)
+                {
+                    // STEP 1: Just collect the data. Don't create windows yet.
+                    // This ensures the DragDrop event finishes quickly.
+                    List<string> pathsToProcess = new List<string>(files);
+
+                    // STEP 2: Process the UI creation asynchronously using BeginInvoke.
+                    // This moves the heavy lifting out of the Drag transaction.
+                    this.BeginInvoke(new Action(() =>
+                    {
+                        ProcessDroppedFiles(pathsToProcess);
+                        WindowController.PrintActiveWindows();
+                    }));
+                }
+                return;
+            }
+        
+            // ---------------------------------------------------------
+            // 3. PRIORITY: Pure Bitmaps (e.g. pasted from clipboard)
+            // ---------------------------------------------------------
             else if (e.Data.GetDataPresent(DataFormats.Bitmap))
             {
                 var img = (Image)e.Data.GetData(DataFormats.Bitmap);
                 AddSource(Guid.Empty, img);
+                return;
             }
-            else if (e.Data.GetDataPresent(DataFormats.FileDrop))
-            {
-                var files = (string[])e.Data.GetData(DataFormats.FileDrop);
-                foreach (var file in files)
-                {
-                    try
-                    {
-                        using (var stream = new System.IO.FileStream(file, System.IO.FileMode.Open))
-                        {
-                            AddSource(Guid.Empty, Image.FromStream(stream));
-                        }
-                    }
-                    catch { }
-                }
-            }
+
+            // ---------------------------------------------------------
+            // 4. PRIORITY: Web Images (URL) & Text
+            // This is the fallback for web drags that aren't file drops
+            // ---------------------------------------------------------
             else if (e.Data.GetDataPresent(DataFormats.UnicodeText) || e.Data.GetDataPresent(DataFormats.Text))
             {
-                // 1. Retrieve the text safely
                 string text = (string)e.Data.GetData(DataFormats.UnicodeText);
-                if (string.IsNullOrEmpty(text))
-                {
-                    text = (string)e.Data.GetData(DataFormats.Text);
-                }
+                if (string.IsNullOrEmpty(text)) text = (string)e.Data.GetData(DataFormats.Text);
 
-                // 2. Pass it to your controller to generate the hidden, shelved window
                 if (!string.IsNullOrEmpty(text))
                 {
-                    CreateShelvedTextWindow(text);
+                    // --- Web Image Handling (Your WebClient Logic) ---
+                    bool loadedAsImage = false;
+
+                    if (text.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                    {
+                        try
+                        {
+                            // Note: In production, consider doing this async to avoid UI freeze
+                            using (var client = new System.Net.WebClient())
+                            {
+                                byte[] imageData = client.DownloadData(text);
+
+                                using (var ms = new System.IO.MemoryStream(imageData))
+                                using (Image img = Image.FromStream(ms))
+                                {
+                                    AddSource(Guid.Empty, (Image)img.Clone());
+                                    loadedAsImage = true;
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // Download failed or link was not an image
+                            loadedAsImage = false;
+                        }
+                    }
+
+                    // --- Fallback to Path or Text ---
+                    if (!loadedAsImage)
+                    {
+                        // Check if text is actually a valid path (edge case for some drag sources)
+                        if (System.IO.Directory.Exists(text) || System.IO.File.Exists(text))
+                        {
+                            if (System.IO.Directory.Exists(text))
+                                CreateShelvedPathWindow(text); // Handle as Folder
+                            else
+                                CreateShelvedPathWindow(text); // Handle as File
+                        }
+                        else
+                        {
+                            CreateShelvedTextWindow(text);
+                        }
+                    }
                 }
             }
+        }
 
+        // --- HELPER METHOD ---
+        private bool IsImageExtension(string path)
+        {
+            string ext = System.IO.Path.GetExtension(path).ToLowerInvariant();
+            return ext == ".jpg" || ext == ".jpeg" || ext == ".png" ||
+                   ext == ".bmp" || ext == ".gif" || ext == ".webp" || ext == ".ico";
+        }
+
+        // HELPER METHOD: Process the files safely
+        private void ProcessDroppedFiles(List<string> paths)
+        {
+            foreach (var path in paths)
+            {
+                // REMOVE THE TRY/CATCH here initially to see the error!
+                try
+                {
+                    FileAttributes attr = System.IO.File.GetAttributes(path);
+
+                    if (attr.HasFlag(FileAttributes.Directory))
+                    {
+                        CreateShelvedPathWindow(path);
+                    }
+                    else
+                    {
+                        bool loadedAsImage = false;
+                        if (IsImageExtension(path))
+                        {
+                            try
+                            {
+                                using (var stream = new System.IO.FileStream(path, System.IO.FileMode.Open, FileAccess.Read))
+                                using (Image imgTemp = Image.FromStream(stream, false, true))
+                                {
+                                    AddSource(Guid.Empty, (Image)imgTemp.Clone());
+                                    loadedAsImage = true;
+                                }
+                            }
+                            catch
+                            {
+                                // Image load failed, treat as file
+                                loadedAsImage = false;
+                            }
+                        }
+
+                        if (!loadedAsImage)
+                        {
+                            CreateShelvedPathWindow(path);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to drop item: {path}. Error: {ex.Message}");
+                }
+            }
         }
         protected override void OnShown(EventArgs e)
         {

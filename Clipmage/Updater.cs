@@ -446,7 +446,7 @@ namespace Clipmage
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Update check failed: {ex.Message}");
+                //MessageBox.Show($"Update check failed: {ex.Message}");
             }
         }
 
