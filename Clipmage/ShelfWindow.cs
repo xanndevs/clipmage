@@ -528,7 +528,7 @@ namespace Clipmage
                     this.BeginInvoke(new Action(() =>
                     {
                         ProcessDroppedFiles(pathsToProcess);
-                        WindowController.PrintActiveWindows();
+                        //WindowController.PrintActiveWindows();
                     }));
                 }
                 return;

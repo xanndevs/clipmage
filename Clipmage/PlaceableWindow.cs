@@ -99,7 +99,7 @@ namespace Clipmage
         private void OnVisibiltyChanged(object? sender, EventArgs e)
         {
             // Check if the window is NOT visible (meaning it was just hidden)
-            if (!this.Visible) { _lifeTimer.Stop(); _fadeTimer.Stop(); this.Opacity = 1.0f; }
+            if (!this.Visible) { _lifeTimer.Stop(); _fadeTimer?.Stop(); this.Opacity = 1.0f; }
             else _lifeTimer.Start();
         }
 
