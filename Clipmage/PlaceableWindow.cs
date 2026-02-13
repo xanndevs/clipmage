@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using static Clipmage.WindowHelpers;
 using static Clipmage.AppConfig;
+using Windows.UI.Core;
 
 namespace Clipmage
 {
@@ -44,6 +45,7 @@ namespace Clipmage
         private Point _fileDragStartPos;
         private bool _isFileDragActive = false;
         private bool _wasFileDragCancelledByMovement = false;
+
 
         private Queue<(DateTime Time, Point Position)> _dragHistory = new Queue<(DateTime, Point)>();
 
@@ -91,7 +93,16 @@ namespace Clipmage
             this.MouseMove += OnMouseMove;
             this.MouseUp += OnMouseUp;
             this.GiveFeedback += OnGiveFeedback;
+            this.VisibleChanged += OnVisibiltyChanged;
         }
+
+        private void OnVisibiltyChanged(object? sender, EventArgs e)
+        {
+            // Check if the window is NOT visible (meaning it was just hidden)
+            if (!this.Visible) { _lifeTimer.Stop(); _fadeTimer.Stop(); this.Opacity = 1.0f; }
+            else _lifeTimer.Start();
+        }
+
 
         // --- Abstract / Virtual Methods for Children ---
 
@@ -168,12 +179,14 @@ namespace Clipmage
             this.Controls.Add(_pinButton);
         }
 
-        protected virtual void TogglePin()
+        public virtual void TogglePin()
         {
             _isPinned = !_isPinned;
             if (_isPinned)
             {
                 _lifeTimer.Stop();
+                _fadeTimer.Stop(); 
+                this.Opacity = 1.0f;
                 _pinButton.Text = "\uE77a";
                 _pinButton.ForeColor = Color.FromArgb(255, 76, 162, 230);
                 _pinButton.FlatAppearance.BorderColor = Color.FromArgb(255, 48, 117, 171);
@@ -293,7 +306,6 @@ namespace Clipmage
         }
 
         // --- Drag & Drop Loop ---
-
         private void StartFileDrag()
         {
             _isFileDragActive = true;
