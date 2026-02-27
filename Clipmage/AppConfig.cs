@@ -8,6 +8,9 @@
         public const int DRAG_CANCEL_DISTANCE = 90; // Pixels to move to cancel the wait
         public const float DRAG_SCALE_FACTOR = 0.16f;
         public const float FILE_DRAG_OFFSET = 8;
+        public const bool OPEN_SHELF_AFTER_DROP = true;
+
+        public const int TRAY_ICON_HOVER_DURATION = 200;
         // Physics Constants 
         public const float FRICTION = 0.87f;
         public const float BOUNCE_FACTOR = 1.45f;

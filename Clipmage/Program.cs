@@ -12,12 +12,21 @@ namespace Clipmage
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            WindowController.ToggleShelf();
-            WindowController.Shelf.Hide();
+
+            //Now handled with WindowController
+            //WindowController.ToggleShelf();
+            //WindowController.Shelf.Hide();
+
+            //Now hadled in the WindowController
+            //DropZone dropZone = new DropZone();
+
+            WindowController.InitializeProgram();
 
             WindowController.DisplayTextWindow("Clipmage is running in the background...\nPress Ctrl+Shift+S to capture a screenshot.");
 
             Updater.Instance.CheckForUpdates();
+
+            
 
             // Create the invisible listener
             using (ClipboardWatcher watcher = new ClipboardWatcher())

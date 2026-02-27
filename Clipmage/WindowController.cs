@@ -12,6 +12,7 @@ namespace Clipmage
         private static List<PlaceableWindow> activeWindows = new List<PlaceableWindow>();
 
         public static ShelfWindow Shelf { get; private set; }
+        public static DropZone DropZone { get; private set; }
 
         public const int WINDOW_DISAPPEAR_DELAY = 5;
 
@@ -133,6 +134,19 @@ namespace Clipmage
                     Shelf.BringToFront();
                 }
             }
+        }
+
+        public static void InitializeProgram()
+        {
+            ToggleShelf();
+            Shelf.Hide();
+            if (DropZone == null || DropZone.IsDisposed)
+            {
+                DropZone = new DropZone();
+            }
+            DropZone.TopMost = false;
+            DropZone.TopMost = true;
+            DropZone.BringToFront();
         }
     }
 }

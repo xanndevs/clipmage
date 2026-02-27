@@ -396,11 +396,14 @@ namespace Clipmage
             _isDragging = false;
             _targetScale = 1.0f;
 
-            if (WindowController.Shelf != null && WindowController.Shelf.Visible && !WindowController.Shelf.IsDisposed)
+            bool isShelfOkay = (WindowController.Shelf != null && WindowController.Shelf.Visible && !WindowController.Shelf.IsDisposed);
+            bool isDropZoneOkay = (WindowController.DropZone != null && WindowController.DropZone.Visible && !WindowController.DropZone.IsDisposed);
+            if (isShelfOkay && isDropZoneOkay)
             {
                 // Now only checks if mouse is actually inside of the shelf bounds.
                 // Previously it checked if the window bounds intersected, which made taking a window out of the shelf a little bit harder.
-                if (new Rectangle(MousePosition.X,MousePosition.Y,1,1).IntersectsWith(WindowController.Shelf.Bounds))
+                Rectangle mousePos = new Rectangle(MousePosition.X, MousePosition.Y, 1, 1);
+                if (mousePos.IntersectsWith(WindowController.Shelf.Bounds) || mousePos.IntersectsWith(WindowController.DropZone.Bounds))
                 {
                     WindowController.Shelf.AddSource(this.id, this.GetSnapshot());
                     this.Hide();

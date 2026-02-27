@@ -20,6 +20,7 @@ namespace Clipmage
         // System Tray
         private NotifyIcon _trayIcon;
         private ContextMenuStrip _trayMenu;
+        private CancellationTokenSource _hoverCts;
 
         // Animation State
         private System.Windows.Forms.Timer _layoutTimer;
@@ -41,6 +42,7 @@ namespace Clipmage
 
             // Setup System Tray
             SetupSystemTray();
+
         }
 
         private void ApplyDarkTitleBar()
@@ -103,11 +105,15 @@ namespace Clipmage
         // Override Close to minimize to tray instead
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            if (e.CloseReason == CloseReason.UserClosing)
-            {
-                e.Cancel = true; // Don't close the form
-                this.Hide();     // Hide it instead
-            }
+            //if (e.CloseReason == CloseReason.UserClosing)
+            //{
+            //    e.Cancel = true; // Don't close the form
+            //    this.Hide();     // Hide it instead
+            //}
+            //Nevermind...
+            e.Cancel = true; // Don't close the form
+            this.Hide();     // Hide it instead
+
             base.OnFormClosing(e);
         }
 
@@ -441,7 +447,7 @@ namespace Clipmage
           
         }
 
-        private void Shelf_DragDrop(object sender, DragEventArgs e)
+        public void Shelf_DragDrop(object sender, DragEventArgs e)
         {
             if (e.Data.GetDataPresent("ClipmageID"))
             {
@@ -498,7 +504,15 @@ namespace Clipmage
             this.TopMost = false;
             this.TopMost = true;
         }
+
+        public void ProcessExternalDrop(DragEventArgs e)
+        {
+            // Simply forward the event to existing logic
+            Shelf_DragDrop(this, e);
+        }
     }
+
+
 
     // High-performance container item that handles rounded corners internally via OnPaint
     public class ShelfItem : PictureBox
@@ -740,6 +754,5 @@ namespace Clipmage
                 }
             }
         }
-        
     }
 }
