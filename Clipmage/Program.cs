@@ -23,6 +23,10 @@ namespace Clipmage
             WindowController.InitializeProgram();
 
             WindowController.DisplayTextWindow("Clipmage is running in the background...\nPress Ctrl+Shift+S to capture a screenshot.");
+            //WindowController.GetWindowById(WindowController.DisplayFolderWindow(@"D:\")).TogglePin();
+            //WindowController.GetWindowById(WindowController.DisplayFolderWindow(@"D:\FindSession.ps1")).TogglePin();
+            //WindowController.GetWindowById(WindowController.DisplayFolderWindow(@"C:\Windows\System32\hdwwiz.exe")).TogglePin();
+            //WindowController.GetWindowById(WindowController.DisplayFolderWindow(@"C:\Windows\System32\SndVol.exe")).TogglePin();
 
             Updater.Instance.CheckForUpdates();
 
