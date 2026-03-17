@@ -185,7 +185,7 @@ namespace Clipmage
             if (_isPinned)
             {
                 _lifeTimer.Stop();
-                _fadeTimer.Stop(); 
+                if(_fadeTimer != null) _fadeTimer.Stop(); 
                 this.Opacity = 1.0f;
                 _pinButton.Text = "\uE77a";
                 _pinButton.ForeColor = Color.FromArgb(255, 76, 162, 230);
@@ -332,6 +332,7 @@ namespace Clipmage
                 {
                     // Clean up drag state immediately
                     _isDragging = false;
+                    RenameFile();
                     _animationTimer.Stop();
                     this.Hide();
                     dropHandled = true;
@@ -359,6 +360,8 @@ namespace Clipmage
                 }
             }
         }
+
+        protected virtual void RenameFile() { }
 
         private void OnQueryContinueDrag(object sender, QueryContinueDragEventArgs e)
         {
@@ -408,14 +411,14 @@ namespace Clipmage
             _isDragging = false;
             _targetScale = 1.0f;
 
-            bool isShelfOkay = (WindowController.Shelf != null && WindowController.Shelf.Visible && !WindowController.Shelf.IsDisposed);
+            bool isShelfOkay = (WindowController.Shelf != null && !WindowController.Shelf.IsDisposed);
             bool isDropZoneOkay = (WindowController.DropZone != null && WindowController.DropZone.Visible && !WindowController.DropZone.IsDisposed);
             if (isShelfOkay && isDropZoneOkay)
             {
                 // Now only checks if mouse is actually inside of the shelf bounds.
                 // Previously it checked if the window bounds intersected, which made taking a window out of the shelf a little bit harder.
                 Rectangle mousePos = new Rectangle(MousePosition.X, MousePosition.Y, 1, 1);
-                if (mousePos.IntersectsWith(WindowController.Shelf.Bounds) || mousePos.IntersectsWith(WindowController.DropZone.Bounds))
+                if (( WindowController.Shelf.Visible && mousePos.IntersectsWith(WindowController.Shelf.Bounds)) || mousePos.IntersectsWith(WindowController.DropZone.Bounds))
                 {
                     WindowController.Shelf.AddSource(this.id, this.GetSnapshot());
                     this.Hide();
@@ -600,7 +603,7 @@ namespace Clipmage
             StartFadeOut();
         }
 
-        private void StartFadeOut()
+        protected void StartFadeOut()
         {
             _fadeTimer = new System.Windows.Forms.Timer();
             _fadeTimer.Interval = WINDOW_REFRESH_INTERVAL;

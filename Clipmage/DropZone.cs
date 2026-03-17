@@ -60,7 +60,7 @@ namespace Clipmage
             this.Show();
             // --- The Aggressive Enforcer ---
             _zOrderEnforcer = new System.Windows.Forms.Timer();
-            _zOrderEnforcer.Interval = 500; // Hammer the OS 20 times a second
+            _zOrderEnforcer.Interval = 500; // Hammer the OS 2 times a second
             _zOrderEnforcer.Tick += (s, e) => ForceTopMost();
             _zOrderEnforcer.Start();
         }

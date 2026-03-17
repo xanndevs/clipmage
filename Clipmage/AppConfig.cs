@@ -8,7 +8,8 @@
         public const int DRAG_CANCEL_DISTANCE = 90; // Pixels to move to cancel the wait
         public const float DRAG_SCALE_FACTOR = 0.16f;
         public const float FILE_DRAG_OFFSET = 8;
-        public const bool OPEN_SHELF_AFTER_DROP = true;
+        public const bool OPEN_SHELF_AFTER_DROP = false;
+        public const bool CLOSE_AFTER_COMPRESS = true;
 
         public const int TRAY_ICON_HOVER_DURATION = 200;
         // Physics Constants 
@@ -23,6 +24,7 @@
         // TextBox Behavior
         public const bool IS_TAB_TO_INDENT = true;
         public const int TAB_WIDTH = 4;
+        public const bool SHOW_FILE_EXTENSIONS = false;
 
         // Animation Constants
         public const double FADE_OUT_PERCENT = 0.025;

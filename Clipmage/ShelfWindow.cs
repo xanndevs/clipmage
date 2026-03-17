@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices; // Required for DllImport
 using System.Windows.Forms;
+using WinRT;
 using static Clipmage.AppConfig;
 using static Clipmage.WindowHelpers;
 
@@ -349,9 +351,12 @@ namespace Clipmage
         public void AddSource(Guid sourceId, Image img)
         {
             if (img == null) return;
+            if (_flowPanel.Controls.OfType<ShelfItem>().Any(item => item.Tag is Guid itemguid && itemguid == sourceId))
+                return;
 
             // Use custom ShelfItem instead of standard PictureBox for better performance
             ShelfItem pb = new ShelfItem();
+            pb.Tag = Guid.Empty;
             pb.Image = (Image)img.Clone();
 
             // Calculate initial size logic (using Config)

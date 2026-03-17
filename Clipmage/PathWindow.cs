@@ -1,11 +1,17 @@
 ﻿using System;
+using System.Diagnostics;
 using System.DirectoryServices.ActiveDirectory;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.IO;
+using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics.Arm;
 using System.Windows.Forms;
 using Windows.ApplicationModel.DataTransfer;
+using Windows.Storage;
+using Windows.Storage.Compression;
+using Windows.Storage.Streams;
 using static Clipmage.AppConfig;
 using static Clipmage.WindowHelpers;
 
@@ -22,7 +28,7 @@ namespace Clipmage
 
         private Panel _detailsContainer; // The panel that contains folder icon and folder details like size information
 
-        public readonly string _filePath;
+        public string _filePath { get; private set; }
         private string _fileSize = "0.0"; // Placeholder until we implement file size retrieval logic
         private string _fileDateModified = new DateTime(0).ToShortDateString(); // Placeholder until we implement file size retrieval logic
         private string _fileDisplayName = ""; // Placeholder until we implement file size retrieval logic
@@ -65,6 +71,7 @@ namespace Clipmage
         public PathWindow(string path, int durationSeconds) : base(durationSeconds)
         {
             _filePath = path;
+            
             WindowHelpers.GetDetailsFromPath(_filePath, out _fileDisplayName, out _fileTypeName, out _fileSize, out _fileDateModified);
 
             this.WindowState = FormWindowState.Normal;
@@ -77,6 +84,9 @@ namespace Clipmage
             SetupEditButton();
             SetupTitleContainer();
             SetupTitleText();
+
+            _titleText.Text = SHOW_FILE_EXTENSIONS ? Path.GetFileName(_filePath) : Path.GetFileNameWithoutExtension(_filePath);
+
             SetupContainer();
             //SetupScrollBar(); // Attach scrollbar to container
             //SetupTextBox(text); // Create text box and put in container
@@ -315,6 +325,12 @@ namespace Clipmage
             deleteButton.ForeColor = Color.IndianRed;
             deleteButton.BackColor = Color.FromArgb(255, 39, 41, 42);
 
+            //delete button should replace the right side of the panel
+            // with a delete modal so I dont accidently fuck people's computers up
+            // :thumbsupemoji: like a boss
+            //this is a dummy comment I dont know why I am writing this one
+            //instead of actually working on the modal itself
+
             //button.Click += (s, e) => ToggleEdit();
 
             ApplyRoundedRegion(deleteButton, BUTTON_CORNER_RADIUS, 1, Color.Empty);
@@ -338,6 +354,11 @@ namespace Clipmage
             compressButton.ForeColor = Color.LightGray;
             compressButton.BackColor = Color.FromArgb(255, 39, 41, 42);
 
+            // And also this one supposedly compress the selected path and close this window
+            // replacing the old window with this new window that contains the information for the
+            // compressed file... place the file in temp future me... thanks.
+
+
             Label compressLabel = new Label();
             compressLabel.Text = "Compress";
             compressLabel.Font = new Font("Segoe UI", FONT_SIZE_SMALL, FontStyle.Regular);
@@ -347,6 +368,10 @@ namespace Clipmage
             compressButton.Controls.Add(compressLabel);
             //button.Click += (s, e) => ToggleEdit();
 
+            compressButton.Click += CompressAndCreatePreview;
+            compressLabel.Click += CompressAndCreatePreview;
+            
+
             ApplyRoundedRegion(compressButton, BUTTON_CORNER_RADIUS, 1, Color.Empty);
 
             panel.Controls.Add(compressButton);
@@ -354,6 +379,7 @@ namespace Clipmage
 
 
         }
+
 
         private void SetupEditButton()
         {
@@ -430,6 +456,61 @@ namespace Clipmage
             _titleLength.BringToFront();
         }
 
+        private void CompressAndCreatePreview(object? sender, EventArgs e)
+        {
+            if (string.IsNullOrEmpty(_filePath))
+                return;
+
+            bool isFile = File.Exists(_filePath);
+            bool isDirectory = Directory.Exists(_filePath);
+
+            if (!isFile && !isDirectory)
+                throw new Exception("Path does not exist.");
+
+            string tempDir = Path.Combine(Path.GetTempPath(), "Clipmage", "Compressed File");
+            Directory.CreateDirectory(tempDir);
+
+            string zipPath = GetUniqueZipPath(tempDir, _titleText.Text);
+
+            if (isDirectory)
+            {
+                ZipFile.CreateFromDirectory(_filePath, zipPath);
+            }
+            else if (isFile)
+            {
+                using (var archive = ZipFile.Open(zipPath, ZipArchiveMode.Create))
+                {
+                    archive.CreateEntryFromFile(_filePath, Path.GetFileName(_filePath));
+                }
+            }
+            WindowController.DisplayFolderWindow(zipPath);  
+            if (CLOSE_AFTER_COMPRESS) StartFadeOut();
+            return;
+            //return WindowController.DisplayFolderWindow(zipPath);
+
+
+        }
+
+        private string GetUniqueZipPath(string directory, string baseName)
+        {
+            string path = Path.Combine(directory, baseName + ".zip");
+
+            if (!File.Exists(path))
+                return path;
+
+            int counter = 1;
+
+            while (true)
+            {
+                string newPath = Path.Combine(directory, $"{baseName} ({counter}).zip");
+
+                if (!File.Exists(newPath))
+                    return newPath;
+
+                counter++;
+            }
+        }
+
         private void CalculateRemainingSize()
         {
             _titleLength.Text = $"{_titleText.MaxLength - _titleText.Text.Length}";
@@ -447,14 +528,18 @@ namespace Clipmage
             {
                 // Save/Stop Editing
                 isEditing = false;
+
+                //Length Couunter Logic
                 _titleLength.Visible = false;
+                
                 _editButton.Text = "\ue70f";
                 //_editButton.BackColor = Color.FromArgb(255, 39, 41, 42);
                 _editButton.ForeColor = Color.LightGray;
                 _editButton.FlatAppearance.BorderColor = Color.DimGray;
-
+                this.Focus(); // Release focus from the text box so it does not keep blinking
                 _snapshot = null; // Clear cached snapshot so it regenerates with new text on next
                 GetSnapshot();
+
             }
             else
             {
@@ -463,6 +548,8 @@ namespace Clipmage
                 //_editButton.BackColor = Color.FromArgb(255, 76, 162, 230);
                 _editButton.ForeColor = Color.FromArgb(255, 76, 162, 230);
                 _editButton.FlatAppearance.BorderColor = Color.FromArgb(255, 48, 117, 171);
+                
+                //Length Couunter Logic
                 _titleLength.Visible = true;
                 _titleText.Enabled = true;
    
@@ -505,8 +592,18 @@ namespace Clipmage
             {
                 var dataObject = new DataObject();
 
+                // I choose to rename the file at this stage because otherwise
+                // if the user does not want to drag the file into another place
+                // the renaming opereation would happen right after saving the name
+                //RenameFile();
+                //Nevermind I added it to the last stage of the file drop code in placablewindow
+                //because this one renamed files even if we dont release them
+
                 // 1. Text Format (Preferred by Notepad, VS Code, Browser Text Fields)
                 string path = Path.GetFullPath(_filePath);
+
+
+
                 if (!string.IsNullOrEmpty(path))
                 {
                     dataObject.SetData(DataFormats.SymbolicLink, path);
@@ -533,27 +630,45 @@ namespace Clipmage
                 return null;
             }
         }
+        protected override void RenameFile()
+        {
+            string oldPath = _filePath;
+            string directory = Path.GetDirectoryName(oldPath);
 
-        // Helper to create the file
-        //private string CreateTempTextFile(string content)
-        //{
-        //    // Get the system temp folder
-        //    string tempPath = System.IO.Path.GetTempPath();
+            if (string.IsNullOrWhiteSpace(directory))
+                throw new InvalidOperationException("Invalid directory.");
 
-        //    // Create a safe filename. You could also use a snippet of the text as the name.
-        //    // e.g., "Note_20231025.txt"
-        //    string fileName = $"Clipmage_Text_{DateTime.Now.Ticks}.txt";
-        //    if (this._titleText != null && !string.IsNullOrEmpty(this._titleText.Text))
-        //    {
-        //        fileName = $"{this._titleText.Text}.txt";
-        //    }
-        //    string fullPath = System.IO.Path.Combine(tempPath, fileName);
+            string newPath;
 
-        //    // Write the text to the file
-        //    System.IO.File.WriteAllText(fullPath, content);
+            if (File.Exists(oldPath))
+            {
+                // Determine new file name
+                string extension = Path.GetExtension(oldPath);
+                string baseName = _titleText.Text;
+                if(SHOW_FILE_EXTENSIONS)
+                    newPath = Path.Combine(directory, baseName);
+                else
+                    newPath = Path.Combine(directory, baseName + extension);
 
-        //    return fullPath;
-        //}
+                if (!File.Exists(newPath))
+                    File.Move(oldPath, newPath);
+                // else: skip move if already exists
+            }
+            else if (Directory.Exists(oldPath))
+            {
+                // Directories don't have extensions
+                newPath = Path.Combine(directory, _titleText.Text);
+
+                if (!Directory.Exists(newPath))
+                    Directory.Move(oldPath, newPath);
+            }
+            else
+            {
+                throw new FileNotFoundException("Source path not found.", oldPath);
+            }
+
+            _filePath = newPath;
+        }
 
         protected override void OnStartDrag()
         {
