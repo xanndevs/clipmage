@@ -8,6 +8,7 @@ using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics.Arm;
 using System.Windows.Forms;
+using Windows.ApplicationModel.Appointments.AppointmentsProvider;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
 using Windows.Storage.Compression;
@@ -15,18 +16,24 @@ using Windows.Storage.Streams;
 using static Clipmage.AppConfig;
 using static Clipmage.WindowHelpers;
 
+using Microsoft.VisualBasic.FileIO;
+
 namespace Clipmage
 {
     public class PathWindow : PlaceableWindow
     {
         //private GhostTextBox _textBox;
-        private Panel _container; // The panel that contains folder icon and folder details like size information
+        private Panel _container; // The _buttonsPanel that contains folder icon and folder details like size information
 
         private Panel _iconDisplay;
 
-        private Panel _iconContainer; // The panel that contains folder icon and folder details like size information
+        private Panel _iconContainer; // The _buttonsPanel that contains folder icon and folder details like size information
 
-        private Panel _detailsContainer; // The panel that contains folder icon and folder details like size information
+        private Panel _detailsContainer; // The _buttonsPanel that contains folder icon and folder details like size information
+
+
+        private Panel _buttonsPanel;
+        private Panel _deleteModalPanel;
 
         public string _filePath { get; private set; }
         private string _fileSize = "0.0"; // Placeholder until we implement file size retrieval logic
@@ -218,8 +225,10 @@ namespace Clipmage
             int y = SetupSizeLabels(PADDING_LARGE);
             y = SetupDateLabels(y + PADDING_SMALL);
 
+            SetupDeleteModalPanel();
             SetupButtonsPanel();
 
+    
             _container.Controls.Add(_detailsContainer);
 
             ApplyPassthrough(_detailsContainer);
@@ -303,11 +312,10 @@ namespace Clipmage
 
         private void SetupButtonsPanel()
         {
-            Panel panel = new Panel();
-            panel.Size = new Size(_detailsContainer.ClientSize.Width - PADDING_NORMAL - PADDING_NORMAL, INTERACTION_BUTTON_SIZE );
-            panel.Location = new Point(0, _detailsContainer.Bottom - panel.Size.Height - PADDING_NORMAL);
-            panel.Anchor = AnchorStyles.Left | AnchorStyles.Right;
-
+            _buttonsPanel = new Panel();
+            _buttonsPanel.Size = new Size(_detailsContainer.ClientSize.Width - PADDING_NORMAL - PADDING_NORMAL, INTERACTION_BUTTON_SIZE);
+            _buttonsPanel.Location = new Point(0, _detailsContainer.Bottom - _buttonsPanel.Size.Height - PADDING_NORMAL);
+            _buttonsPanel.Anchor = AnchorStyles.Left | AnchorStyles.Right;
 
 
             Button deleteButton = new Button();
@@ -325,7 +333,12 @@ namespace Clipmage
             deleteButton.ForeColor = Color.IndianRed;
             deleteButton.BackColor = Color.FromArgb(255, 39, 41, 42);
 
-            //delete button should replace the right side of the panel
+            deleteButton.Click += (e, s) =>
+            {
+                ChangeButtonsPanelToDeleteModal(true);
+            };
+
+            //delete button should replace the right side of the _buttonsPanel
             // with a delete modal so I dont accidently fuck people's computers up
             // :thumbsupemoji: like a boss
             //this is a dummy comment I dont know why I am writing this one
@@ -335,7 +348,7 @@ namespace Clipmage
 
             ApplyRoundedRegion(deleteButton, BUTTON_CORNER_RADIUS, 1, Color.Empty);
 
-            panel.Controls.Add(deleteButton);
+            _buttonsPanel.Controls.Add(deleteButton);
 
 
             Button compressButton = new Button();
@@ -343,8 +356,8 @@ namespace Clipmage
             compressButton.Padding = new Padding(PADDING_TINY, 0, 0, 0);
             compressButton.Font = new Font("Segoe Fluent Icons", 13f, FontStyle.Regular);
             compressButton.Text += "\uf012"; // Pencil icon
-            compressButton.Size = new Size((panel.Width - deleteButton.Width) - (PADDING_TINY * 2), INTERACTION_BUTTON_SIZE);
-            compressButton.Location = new Point(deleteButton.Right + PADDING_SMALL , 0);
+            compressButton.Size = new Size((_buttonsPanel.Width - deleteButton.Width) - (PADDING_TINY * 2), INTERACTION_BUTTON_SIZE);
+            compressButton.Location = new Point(deleteButton.Right + PADDING_SMALL, 0);
             compressButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             compressButton.FlatStyle = FlatStyle.Flat;
             compressButton.FlatAppearance.BorderSize = 0;
@@ -359,27 +372,135 @@ namespace Clipmage
             // compressed file... place the file in temp future me... thanks.
 
 
-            Label compressLabel = new Label();
+            Label compressLabel = new GhostLabel();
             compressLabel.Text = "Compress";
             compressLabel.Font = new Font("Segoe UI", FONT_SIZE_SMALL, FontStyle.Regular);
             compressLabel.AutoSize = true;
             compressLabel.Location = new Point(TextRenderer.MeasureText(compressButton.Text, compressButton.Font).Width + (PADDING_TINY + PADDING_SMALL), ((compressButton.ClientSize.Height - compressLabel.ClientSize.Height) / 2) + PADDING_TINY);
             compressLabel.ForeColor = Color.LightGray;
+            compressLabel.BackColor = Color.Transparent;
             compressButton.Controls.Add(compressLabel);
             //button.Click += (s, e) => ToggleEdit();
 
             compressButton.Click += CompressAndCreatePreview;
             compressLabel.Click += CompressAndCreatePreview;
-            
+
 
             ApplyRoundedRegion(compressButton, BUTTON_CORNER_RADIUS, 1, Color.Empty);
 
-            panel.Controls.Add(compressButton);
-            _detailsContainer.Controls.Add(panel);
+            _buttonsPanel.Controls.Add(compressButton);
+            _detailsContainer.Controls.Add(_buttonsPanel);
 
+            //////////// _buttonsPanel.Hide();
 
         }
 
+        private void SetupDeleteModalPanel()
+        {
+            _deleteModalPanel = new Panel();
+            _deleteModalPanel.Size = new Size(_detailsContainer.ClientSize.Width - PADDING_NORMAL - PADDING_NORMAL, INTERACTION_BUTTON_SIZE);
+            _deleteModalPanel.Location = new Point(0, _detailsContainer.Bottom - _deleteModalPanel.Size.Height - PADDING_NORMAL);
+            _deleteModalPanel.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+
+
+
+
+
+            Button cancelButton = new Button();
+            cancelButton.TextAlign = ContentAlignment.MiddleLeft;
+            cancelButton.Padding = new Padding(PADDING_TINY, 0, 0, 0);
+            cancelButton.Font = new Font("Segoe Fluent Icons", 13f, FontStyle.Regular);
+            cancelButton.Text += "\uf78a"; // Pencil icon
+            cancelButton.Size = new Size((_deleteModalPanel.Width - INTERACTION_BUTTON_SIZE) - (PADDING_TINY * 2), INTERACTION_BUTTON_SIZE);
+            cancelButton.Location = new Point(0, 0);
+            cancelButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            cancelButton.FlatStyle = FlatStyle.Flat;
+            cancelButton.FlatAppearance.BorderSize = 0;
+            cancelButton.FlatAppearance.BorderColor = Color.DimGray;
+            cancelButton.UseVisualStyleBackColor = true;
+            cancelButton.Cursor = Cursors.Hand;
+            cancelButton.ForeColor = Color.LightGray;
+            cancelButton.BackColor = Color.FromArgb(255, 39, 41, 42);
+
+            // And also this one supposedly compress the selected path and close this window
+            // replacing the old window with this new window that contains the information for the
+            // compressed file... place the file in temp future me... thanks.
+
+
+            Label cancelLabel = new GhostLabel();
+            cancelLabel.Text = "Cancel";
+            cancelLabel.Font = new Font("Segoe UI", FONT_SIZE_SMALL, FontStyle.Regular);
+            cancelLabel.AutoSize = true;
+            cancelLabel.Location = new Point(TextRenderer.MeasureText(cancelButton.Text, cancelButton.Font).Width + (PADDING_TINY + PADDING_SMALL), ((cancelButton.ClientSize.Height - cancelLabel.ClientSize.Height) / 2) + PADDING_TINY);
+            cancelLabel.ForeColor = Color.LightGray;
+            cancelLabel.BackColor = Color.Transparent;
+            cancelButton.Controls.Add(cancelLabel);
+            //button.Click += (s, e) => ToggleEdit();
+
+            cancelButton.Click += (e, s) => {
+                ChangeButtonsPanelToDeleteModal(false);
+            };
+
+
+            ApplyRoundedRegion(cancelButton, BUTTON_CORNER_RADIUS, 1, Color.Empty);
+
+            Button deleteButton = new Button();
+
+            deleteButton.Text = "\ue8fb"; // Accept icon
+            deleteButton.Size = new Size(INTERACTION_BUTTON_SIZE, INTERACTION_BUTTON_SIZE);
+            deleteButton.Location = new Point(cancelButton.Right + PADDING_SMALL , 0);
+            deleteButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            deleteButton.FlatStyle = FlatStyle.Flat;
+            deleteButton.FlatAppearance.BorderSize = 0;
+            deleteButton.FlatAppearance.BorderColor = Color.IndianRed;
+            deleteButton.UseVisualStyleBackColor = true;
+            deleteButton.Cursor = Cursors.Hand;
+            deleteButton.Font = new Font("Segoe Fluent Icons", 11f, FontStyle.Bold);
+            deleteButton.ForeColor = Color.IndianRed;
+            deleteButton.BackColor = Color.FromArgb(255, 39, 41, 42);
+
+            deleteButton.Click += (e, s) =>
+            {
+                // DO THE DELETE... I mean to the TRASHHHHHHHHHHHHHH
+                SendToTrash();
+            };
+
+            //delete button should replace the right side of the _buttonsPanel
+            // with a delete modal so I dont accidently fuck people's computers up
+            // :thumbsupemoji: like a boss
+            //this is a dummy comment I dont know why I am writing this one
+            //instead of actually working on the modal itself
+
+            //button.Click += (s, e) => ToggleEdit();
+
+            ApplyRoundedRegion(deleteButton, BUTTON_CORNER_RADIUS, 1, Color.Empty);
+
+            _deleteModalPanel.Controls.Add(deleteButton);
+
+
+            _deleteModalPanel.Controls.Add(cancelButton);
+            _detailsContainer.Controls.Add(_deleteModalPanel);
+
+            _deleteModalPanel.Hide();
+        }
+
+        private void ChangeButtonsPanelToDeleteModal(bool willBeDeleteModal)
+        {
+            ///    Normally I would do those in a single line and I would probably just hide the buttons panel 
+            ///  and show it again to overlay on top of the delete modal but for somereqson whenever buttons panel 
+            ///  is shown on top the snapshot of that version shows that the cancel button in front so I decided to 
+            ///  just hide the delete modal altogether to make this work...
+            if (willBeDeleteModal)
+            {
+                _deleteModalPanel.Show();
+                _buttonsPanel.Hide();
+            }
+            else
+            {
+                _buttonsPanel.Show();
+                _deleteModalPanel.Hide();
+            }
+        }
 
         private void SetupEditButton()
         {
@@ -686,5 +807,45 @@ namespace Clipmage
             control.MouseMove += OnMouseMove;
             control.MouseUp += OnMouseUp;
         }
+
+        public void SendToTrash()
+        {
+            string path = _filePath;
+            try
+            {
+                if (string.IsNullOrEmpty(path) || (!File.Exists(path) && !Directory.Exists(path)))
+                {
+                    return;
+                }
+
+                // Determine if it's a file or directory
+                System.IO.FileAttributes attr = File.GetAttributes(path);
+                
+                if (attr.HasFlag(System.IO.FileAttributes.Directory))
+                {
+                    // Move Folder to Trash
+                    FileSystem.DeleteDirectory(path,
+                        UIOption.OnlyErrorDialogs,
+                        RecycleOption.SendToRecycleBin);
+                }
+                else
+                {
+                    // Move File to Trash
+                    FileSystem.DeleteFile(path,
+                        UIOption.OnlyErrorDialogs,
+                        RecycleOption.SendToRecycleBin);
+                }
+                
+                /////   THIS should be there because the file is now in the trash 
+                //    and there is no real need to display this windows after the deletion...
+                StartFadeOut();
+
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error moving to trash: {ex.Message}");
+            }
+        }
+
     }
 }

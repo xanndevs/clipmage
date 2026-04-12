@@ -258,7 +258,7 @@ namespace Clipmage
             _titleContainer.Location = new Point(PADDING_NORMAL, PADDING_NORMAL);
             _titleContainer.Width = this.ClientSize.Width - PADDING_NORMAL - PADDING_NORMAL - (INTERACTION_BUTTON_SIZE + PADDING_NORMAL) * 2;
             _titleContainer.Height = INTERACTION_BUTTON_SIZE;
-            _titleContainer.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            _titleContainer.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             ApplyRoundedRegion(_titleContainer, WINDOW_CORNER_RADIUS, 1, _titleContainer.BackColor);
             this.Controls.Add(_titleContainer);
         }
